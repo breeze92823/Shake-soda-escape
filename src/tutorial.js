@@ -31,12 +31,17 @@ export function createTutorial(scene) {
   // --- Banner ----------------------------------------------------------------
   const banner = document.createElement('div')
   banner.className = 'tut-anchor'
-  banner.innerHTML = '<div class="tutorial" hidden><div class="tut-tag o-thin">TUTORIAL</div><div class="tut-text o"></div><div class="tut-sub o-thin"></div></div>'
+  banner.innerHTML = '<div class="tutorial" hidden><div class="tut-tag o-thin">TUTORIAL</div><div class="tut-text o"></div><div class="tut-sub o-thin"></div><button class="tut-skip o-thin" type="button">SKIP</button></div>'
   document.getElementById('hud')?.appendChild(banner)
   const box = banner.firstChild
   const tag = box.querySelector('.tut-tag')
   const text = box.querySelector('.tut-text')
   const sub = box.querySelector('.tut-sub')
+  const skip = box.querySelector('.tut-skip')
+  skip.addEventListener('click', () => {
+    state.tutorialStep = TUTORIAL.steps // finished: saved by net.js, never shown again
+    notify()
+  })
   let shownKey = ''
   function paintBanner(key, t, s, complete = false) {
     if (key === shownKey) return
@@ -48,6 +53,7 @@ export function createTutorial(scene) {
     text.textContent = t ?? ''
     sub.textContent = s ?? ''
     sub.hidden = !s
+    skip.hidden = complete
     if (fresh) {
       box.style.animation = 'none'
       void box.offsetWidth // restart the pop-in

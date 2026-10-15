@@ -32,5 +32,6 @@ html.touch .prompt kbd { min-width: 44px; height: 44px; font-size: 26px; backgro
 @keyframes tc-turn { 0%, 30% { transform: rotate(0); } 70%, 100% { transform: rotate(-90deg); } }
 @media (orientation: portrait) and (max-width: 900px) { .tc-rotate { display: flex; } }
 @media (max-height: 420px) {
+    .tc-stick { top: var(--y, calc(100% - 72px - env(safe-area-inset-bottom))); left: var(--x, calc(100px + env(safe-area-inset-left))); }
     html.touch .prompt { bottom: calc(116px + env(safe-area-inset-bottom)); }
 }
