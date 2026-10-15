@@ -3,13 +3,13 @@
 // leaderboards. Never throws and never blocks play: with no server (or an unreachable one) the game
 // simply runs offline on local state.
 import { Client } from '@colyseus/sdk'
-import { DEFAULT_SODA, DEV_MODE, GAME_SLUG, NET, SERVER_URL } from './config.js'
+import { DEFAULT_SODA, DEV_MODE, GAME_SLUG, NET, SERVER_URL, TUTORIAL } from './config.js'
 import { authState, sdk, getEquippedAvatar, getProportions, getSkinTextureUrl, subscribeAuth } from './bloxity.js'
 import { devUnlockAll, notify, setServerTime, state, subscribe } from './state.js'
 import { markLoaded } from './loading.js'
 
 // The keys the server persists (backend src/sanitize.ts). `owned`, `passes` and `auras` are Sets in `state`.
-const SAVED = ['soda', 'wins', 'level', 'xp', 'xpNext', 'rebirths', 'equipped', 'owned', 'passes', 'record', 'sodaBoostUntil', 'auras', 'aura', 'worlds', 'dailyDay', 'dailyClaimedAt']
+const SAVED = ['soda', 'wins', 'level', 'xp', 'xpNext', 'rebirths', 'equipped', 'owned', 'passes', 'record', 'sodaBoostUntil', 'auras', 'aura', 'worlds', 'dailyDay', 'dailyClaimedAt', 'tutorialStep']
 const SETS = new Set(['owned', 'passes', 'auras', 'worlds'])
 const AVATAR_MAX = 3000 // backend AVATAR_MAX_LEN
 
@@ -124,7 +124,8 @@ function send(type, payload) {
 let lastPose = ''
 let lastPoseAt = 0
 // Throttled to NET.poseHz; skips repeats while standing still.
-export function sendPose(player, speed, pose = '') {
+// `belt` = index of the treadmill being run on (-1 = none): others animate the run + scroll that belt.
+export function sendPose(player, speed, pose = '', belt = -1) {
   if (!net.connected) return
   const now = performance.now()
   if (now - lastPoseAt < 1000 / NET.poseHz) return
@@ -132,7 +133,7 @@ export function sendPose(player, speed, pose = '') {
   const r = (n) => Math.round(n * 100) / 100
   // Other worlds share the lobby's coordinates, so while away the avatar is parked under the lobby floor (out of sight).
   const away = state.world !== 'lobby'
-  const msg = { x: away ? 0 : r(player.position.x), y: away ? -39 : r(player.position.y), z: away ? 0 : r(player.position.z), yaw: r(player.facing), speed01: r(Math.min(1, speed / player.moveSpeed)), grounded: player.grounded, pose }
+  const msg = { x: away ? 0 : r(player.position.x), y: away ? -39 : r(player.position.y), z: away ? 0 : r(player.position.z), yaw: r(player.facing), speed01: r(Math.min(1, speed / player.moveSpeed)), grounded: player.grounded, pose, belt: away ? -1 : belt }
   const key = JSON.stringify(msg)
   if (key === lastPose) return
   lastPose = key
@@ -163,11 +164,15 @@ function attach(room) {
   room.onMessage('progress', (doc) => {
     net.hydrated = true
     setServerTime(doc?.serverTime)
-    hydrate(doc ?? {})
+    // A saved account never gets the tutorial: the server sends tutorialStep = finished for one that
+    // predates it (backend resolveTutorialStep), and a doc without it from an old server reads as finished too.
+    hydrate({ ...doc, tutorialStep: doc?.tutorialStep ?? TUTORIAL.steps })
+    state.tutorialReady = true
     markLoaded('net')
   })
   room.onMessage('noProgress', (msg) => {
     setServerTime(msg?.serverTime)
+    state.tutorialReady = true // a new account (or guest): the tutorial starts from the local step
     // New account, guest or no database: keep what we have and push it as the first save.
     net.hydrated = true
     markLoaded('net')
@@ -217,6 +222,7 @@ async function connect() {
     attach(await client.joinOrCreate('world', { ...id, avatar: avatarJson() }))
   } catch (err) {
     console.warn('[net] could not reach the server; playing offline', err?.message ?? err)
+    if (DEV_MODE) state.tutorialReady = true // no server in dev: can't tell old accounts from new, so show it
     markLoaded('net')
     setTimeout(connect, 10000)
   } finally {
@@ -226,6 +232,7 @@ async function connect() {
 
 export function initNet() {
   if (!SERVER_URL && !canResolve()) {
+    state.tutorialReady = true // offline play has no saved accounts: everyone is new
     markLoaded('net')
     return console.info(`[net] no server configured${DEV_MODE ? ' (VITE_DEV_MODE)' : ''}; playing offline`)
   }

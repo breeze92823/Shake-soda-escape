@@ -27,6 +27,7 @@ import { createWorlds } from './worlds.js'
 import { createBlackHole } from './blackhole.js'
 import { short } from './hud.js'
 import { playerScreen } from './screenPos.js'
+import { createTutorial } from './tutorial.js'
 
 // --- Bloxity + player state -----------------------------------------------
 createLoading()
@@ -81,6 +82,7 @@ initLaunch(scene)
 createTouchControls({ showMenu: bloxity.showMenu })
 const hud = createHud({ showMenu: bloxity.showMenu })
 initInteract({ say: hud.say })
+const tutorial = createTutorial(scene)
 const remotes = createRemotePlayers(scene)
 const blackhole = createBlackHole(scene)
 const worlds = createWorlds({ scene, lobby, ground, space, lights, say: hud.say, remotes, blackhole })
@@ -210,6 +212,7 @@ renderer.setAnimationLoop(() => {
   launch.shake = Math.max(launch.shake, blackhole.state.shake)
   stepInteract()
   hud.update()
+  tutorial.update(clock.elapsedTime)
   worlds.update(clock.elapsedTime, dt)
   // The 20K Summit: unlock + warp to the next world (once per launch).
   if (launch.warp > 0.5 && !summitFired) {
@@ -238,7 +241,7 @@ renderer.setAnimationLoop(() => {
     launch,
   })
 
-  sendPose(player, Math.hypot(player.velocity.x, player.velocity.z))
+  sendPose(player, onBelt ? player.moveSpeed : Math.hypot(player.velocity.x, player.velocity.z), '', onBelt ? runningBelt() : -1)
   remotes.update(dt, player.position)
   updateCamera(camera, dt)
   space.update(Math.round(launch.altitude))

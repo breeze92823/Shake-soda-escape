@@ -5,7 +5,10 @@ import { player } from './player.js'
 
 // equipped = soda item in every avatar's hand; passes = owned boost passes ('soda' | 'wins').
 // dailyDay = next day (0-6) of the daily reward cycle, dailyClaimedAt = epoch ms of the last claim (0 = never).
-export const state = { ...HUD_START, equipped: DEFAULT_SODA, owned: new Set([DEFAULT_SODA]), passes: new Set(), record: 0, sodaBoostUntil: 0, auras: new Set(), aura: null, dailyDay: 0, dailyClaimedAt: 0, worlds: new Set(['lobby']), world: 'lobby' }
+export const state = { ...HUD_START, equipped: DEFAULT_SODA, owned: new Set([DEFAULT_SODA]), passes: new Set(), record: 0, sodaBoostUntil: 0, auras: new Set(), aura: null, dailyDay: 0, dailyClaimedAt: 0, worlds: new Set(['lobby']), world: 'lobby',
+  tutorialStep: 0, // onboarding progress, saved; TUTORIAL.steps = finished (tutorial.js)
+  tutorialReady: false, // the server has said whether this account is new (net.js); never shown before
+}
 
 // Wall clock, corrected to the server's once it has told us the time (net.js), so daily-reward timers and the
 // soda boost can't be skipped by changing the device clock.
@@ -97,6 +100,8 @@ export function runningBelt() {
   const i = treadmillAt()
   return i >= 0 && state.rebirths >= SHOP.rebirths[i] ? i : -1
 }
+// Belts other players are running on right now (remotePlayers.js), so their belts scroll for us too.
+export const remoteBelts = new Set()
 export function treadmillMult() {
   const i = treadmillAt()
   return i >= 0 && state.rebirths >= SHOP.rebirths[i] ? SHOP.mults[i] : 1

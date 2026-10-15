@@ -485,6 +485,11 @@ export const DAILY = {
 }
 // Click/hold on the world gains soda: equipped item's `gain` (SODA_ITEMS) x treadmill multiplier (SHOP) x rebirth multiplier, at most one gain per `interval` s (1s cooldown, shared by click and hold).
 export const SODA_GAIN = { interval: 1 }
+// New-player tutorial (tutorial.js; the step is saved with the account by net.js, and the backend's
+// constants.ts TUTORIAL_DONE_STEP must equal `steps`). 0 click/hold to shake `clickSoda` soda, 1 run on the x1
+// treadmill until `trainSoda`, 2 jump on the Soda Jump pad until the Wins cover the soda, 3 buy `soda` (hold E).
+export const DISABLE_TUTORIAL = false
+export const TUTORIAL = { steps: 4, clickSoda: 4, trainSoda: 12, soda: 'orange', completeMs: 3500 }
 export const levelXp = (level) => 20 + 3 * (level - 1) // xp to clear `level`: 20, 23, 26, ...
 // Bottom soda packs: grant `mult` x current soda; price in Wins.
 // `price` is the floor (early game); the real price grows with the player's soda: max(price, soda x mult x rate),
