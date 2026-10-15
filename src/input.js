@@ -15,6 +15,26 @@ const NOTCH_PER_DELTA = [1 / 100, 1 / 3, 1]
 export const touchInteract = { down: false }
 // Left button / finger held on the world: main.js gains soda while true.
 export const pointerHeld = { down: false }
+
+// Touch "click": a stationary finger on the world (tap, or hold after HOLD_MS). Moving past TAP_SLOP cancels it.
+const TAP_SLOP = 8
+const HOLD_MS = 450
+const taps = new Map() // pointerId -> { x, y, holding, timer }
+function tapStart(e) {
+  const t = { x: e.clientX, y: e.clientY, at: performance.now(), holding: false, timer: 0 }
+  t.timer = setTimeout(() => {
+    t.holding = true
+    pointerHeld.down = true
+  }, HOLD_MS)
+  taps.set(e.pointerId, t)
+}
+function tapDrop(id) {
+  const t = taps.get(id)
+  if (!t) return
+  clearTimeout(t.timer)
+  taps.delete(id)
+  if (t.holding && !taps.size) pointerHeld.down = false
+}
 export const isInteractDown = () => held.has('KeyE') || touchInteract.down
 
 const held = new Set()
@@ -70,8 +90,13 @@ export function install(showMenu, canvasEl) {
     recomputeMove()
   })
   window.addEventListener('pointerdown', (e) => {
-    if (e.target.tagName === 'CANVAS' && (e.button === 0 || e.pointerType === 'touch') && !document.body.classList.contains('win-open')) pointerHeld.down = true
-    if (e.pointerType === 'touch') return // touch.js owns touch (stick, look, buttons)
+    if (e.pointerType === 'touch') {
+      // touch.js owns touch (stick, look, buttons). A finger only counts as a click when it stays put:
+      // dragging to move or look must not earn soda.
+      if (e.target.tagName === 'CANVAS' && !document.body.classList.contains('win-open')) tapStart(e)
+      return
+    }
+    if (e.target.tagName === 'CANVAS' && e.button === 0 && !document.body.classList.contains('win-open')) pointerHeld.down = true
     const onWorld = e.target.tagName === 'CANVAS'
     if (e.button === 2 && !lockEverGranted) orbiting = true
     if (e.button === 0 && onWorld && !document.body.classList.contains('win-open')) {
@@ -80,9 +105,22 @@ export function install(showMenu, canvasEl) {
       requestLock()
     }
   })
+  window.addEventListener('pointermove', (e) => {
+    const t = taps.get(e.pointerId)
+    if (t && Math.hypot(e.clientX - t.x, e.clientY - t.y) > TAP_SLOP) tapDrop(e.pointerId)
+  })
   window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') {
+      const t = taps.get(e.pointerId)
+      if (t && !t.holding && performance.now() - t.at < 300) {
+        // Quick tap: one click's worth of soda.
+        pointerHeld.down = true
+        setTimeout(() => !taps.size && (pointerHeld.down = false), 90)
+      }
+      tapDrop(e.pointerId)
+      return
+    }
     if (e.button === 0) pointerHeld.down = false
-    if (e.pointerType === 'touch') return
     if (e.button === 2) orbiting = false
   })
   window.addEventListener('pointermove', (e) => {
@@ -102,7 +140,7 @@ export function install(showMenu, canvasEl) {
     },
     { passive: false },
   )
-  window.addEventListener('pointercancel', () => (pointerHeld.down = false))
+  window.addEventListener('pointercancel', (e) => (e.pointerType === 'touch' ? tapDrop(e.pointerId) : (pointerHeld.down = false)))
   window.addEventListener('contextmenu', (e) => e.preventDefault())
   window.addEventListener('blur', () => {
     held.clear()
