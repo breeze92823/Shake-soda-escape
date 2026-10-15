@@ -1,0 +1,137 @@
+/* Rebirth window, laid out in the HUD's 1920x991 reference space around the
+   screen centre (offsets measured from the reference screenshot). */
+.a-c { left: 50%; top: 50%; transform-origin: 0 0; transform: scale(var(--s)); }
+#hud.mob .a-c { transform: scale(calc(var(--s) * 0.8)); }
+.rb[hidden] { display: none; }
+
+.rb-win { left: -405px; top: -290px; width: 810px; height: 640px; pointer-events: auto; transform-origin: 405px 320px; }
+.rb.pop .rb-win { animation: rb-pop 0.22s cubic-bezier(0.3, 1.5, 0.6, 1); }
+@keyframes rb-pop { from { transform: scale(0.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.rb-win > * { position: absolute; }
+
+/* --- header: blue studded bar, ball icon, title, close ----------------------- */
+.rb-head {
+  left: 0;
+  top: 0;
+  width: 810px;
+  height: 112px;
+  border-radius: 24px;
+  border: 6px solid #0b1440;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34'%3E%3Crect x='6' y='6' width='22' height='22' rx='5' fill='none' stroke='white' stroke-opacity='.14' stroke-width='2.5'/%3E%3C/svg%3E") 4px 2px / 34px 34px,
+    linear-gradient(#3ea2ff, #1a6ae8 60%, #1658d0);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.25), inset 0 -8px 0 rgba(0, 0, 0, 0.12);
+}
+.rb-head > * { position: absolute; }
+.rb-icon { left: 14px; top: -34px; width: 126px; height: 126px; transform: rotate(-12deg); filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.3)); }
+.rb-head h2 { left: 140px; top: 6px; margin: 0; font-size: 74px; line-height: 90px; font-weight: 700; letter-spacing: -0.5px; }
+.rb-close {
+  left: 696px;
+  top: 3px;
+  width: 98px;
+  height: 94px;
+  border-radius: 16px;
+  border: 5px solid #3a0608;
+  background: linear-gradient(#e8424a, #b81a24 65%, #a0141e);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 -8px 0 rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rb-close svg { width: 60px !important; height: 60px !important; }
+
+/* --- body: light studded panel ----------------------------------------------- */
+.rb-body {
+  left: 15px;
+  top: 98px;
+  width: 780px;
+  height: 542px;
+  border: 6px solid #0b1440;
+  border-top: 0;
+  border-radius: 0 0 36px 36px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='38'%3E%3Cpath d='M9 24V12a3 3 0 0 1 3-3h12' fill='none' stroke='%23d4d6de' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") 0 0 / 38px 38px,
+    #f3f4f7;
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.06);
+}
+.rb-body > * { position: absolute; }
+
+.rb-col { top: 32px; width: 310px; text-align: center; }
+.rb-col b { font-size: 42px; line-height: 48px; color: #2c3150; }
+.rb-l { left: 19px; }
+.rb-r { left: 439px; }
+
+.rb-cell {
+  width: 310px;
+  height: 80px;
+  border-radius: 14px;
+  border: 4px solid var(--edge);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect x='6' y='6' width='18' height='18' rx='4' fill='none' stroke='white' stroke-opacity='.18' stroke-width='2'/%3E%3C/svg%3E") 0 0 / 30px 30px,
+    linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px var(--rim), inset 0 -9px 0 rgba(0, 0, 0, 0.12), 0 4px 0 rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.rb-cell > i { width: 46px; height: 58px; margin-left: -6px; }
+.rb-cell span { font-size: 50px; line-height: 58px; letter-spacing: -0.5px; white-space: nowrap; }
+.rb-soda { top: 92px; --top: #48b0ff; --bot: #1a64e8; --edge: #0b1a5a; --rim: rgba(160, 220, 255, 0.55); }
+.rb-lvl { top: 188px; --top: #ffd84a; --bot: #ffa41a; --edge: #6a3606; --rim: rgba(255, 240, 150, 0.7); }
+
+.rb-arrow { left: 346px; width: 72px; height: 48px; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.25)); }
+.rb-arrow.r1 { top: 108px; }
+.rb-arrow.r2 { top: 204px; }
+
+.rb-warn { left: 0; top: 283px; width: 768px; margin: 0; text-align: center; font-size: 34px; line-height: 40px; color: #ff3a3a; }
+.rb-warn.o-thin { -webkit-text-stroke-color: #4a0606; text-shadow: 0 2px 0 #4a0606; }
+
+.rb-bar {
+  left: 46px;
+  top: 330px;
+  width: 676px;
+  height: 60px;
+  border-radius: 16px;
+  border: 5px solid #0e3a12;
+  background: #2a4a2c;
+  overflow: hidden;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+.rb-bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 10px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect x='6' y='6' width='18' height='18' rx='4' fill='none' stroke='white' stroke-opacity='.16' stroke-width='2'/%3E%3C/svg%3E") 0 0 / 30px 30px,
+    linear-gradient(#5ee24a, #28b42a 60%, #1c9a20);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.25);
+  transition: width 0.4s ease;
+}
+.rb-bar span { position: absolute; inset: 0; text-align: center; font-size: 40px; line-height: 50px; white-space: nowrap; }
+
+.rb-btn {
+  top: 412px;
+  width: 313px;
+  height: 90px;
+  border-radius: 16px;
+  border: 5px solid var(--edge);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect x='6' y='6' width='18' height='18' rx='4' fill='none' stroke='white' stroke-opacity='.16' stroke-width='2'/%3E%3C/svg%3E") 0 0 / 30px 30px,
+    linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px var(--rim), inset 0 -10px 0 rgba(0, 0, 0, 0.14), 0 4px 0 rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.rb-go { left: 61px; --top: #4ed83c; --bot: #1c9a1e; --edge: #0b3a10; --rim: rgba(180, 255, 150, 0.45); }
+.rb-go span { font-size: 54px; line-height: 62px; }
+.rb:not(.ready) .rb-go { filter: saturate(0.55) brightness(0.92); }
+.rb-skip { left: 394px; --top: #ff70d6; --bot: #e2309a; --edge: #5a0a3a; --rim: rgba(255, 190, 240, 0.55); padding-top: 4px; }
+.rb-skip > span { font-size: 38px; line-height: 40px; white-space: nowrap; }
+.rb-skip small { font-size: 26px; line-height: 28px; color: #ffe23a; }
+.rb-skip small.o-thin { -webkit-text-stroke-width: 4px; }
+.rb-skip .price { position: absolute; right: 18px; top: -24px; display: flex; align-items: center; gap: 3px; font-size: 32px; line-height: 36px; color: #8cff5a; }
+.rb-skip .price i { width: 30px; height: 30px; }
+.rb-skip .price .o-thin { -webkit-text-stroke-color: #0e2a12; text-shadow: 0 2px 0 #0e2a12; }
