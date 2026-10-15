@@ -1,0 +1,64 @@
+/* Daily Rewards window: reuses the Rebirth window frame (.rb-win / .rb-head / .rb-body in rebirth.css). */
+.dl-win { height: 650px; }
+.dl-win .rb-body { height: 552px; }
+.dl-icon { left: 14px; top: -30px; width: 118px; height: 118px; transform: rotate(-8deg); }
+.dl-win .rb-head h2 { left: 140px; font-size: 68px; }
+
+/* --- day tiles --------------------------------------------------------------- */
+.dl-tile {
+  --top: #48b0ff; --bot: #1a64e8; --edge: #0b1a5a; --rim: rgba(160, 220, 255, 0.5);
+  width: 172px;
+  height: 178px;
+  border-radius: 18px;
+  border: 4px solid var(--edge);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect x='6' y='6' width='18' height='18' rx='4' fill='none' stroke='white' stroke-opacity='.18' stroke-width='2'/%3E%3C/svg%3E") 0 0 / 30px 30px,
+    linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px var(--rim), inset 0 -9px 0 rgba(0, 0, 0, 0.12), 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+.dl-tile > * { position: absolute; left: 0; width: 100%; text-align: center; white-space: nowrap; }
+.d1 { left: 20px; top: 32px; }
+.d2 { left: 205px; top: 32px; }
+.d3 { left: 390px; top: 32px; }
+.d4 { left: 576px; top: 32px; }
+.d5 { left: 112px; top: 229px; }
+.d6 { left: 297px; top: 229px; }
+.d7 { left: 482px; top: 229px; }
+.dl-tile.big { --top: #ffd84a; --bot: #ffa41a; --edge: #6a3606; --rim: rgba(255, 240, 150, 0.7); }
+
+.dl-day { top: 8px; font-size: 38px; line-height: 44px; }
+.dl-ico { top: 52px; height: 74px; }
+.dl-ico svg { height: 100%; width: auto; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.3)); }
+.dl-amt { bottom: 8px; font-size: 32px; line-height: 38px; letter-spacing: -0.5px; }
+.dl-claimed { display: none; top: 66px; font-size: 38px; line-height: 44px; }
+
+/* claimed: green, faded, "CLAIMED" in place of the icon */
+.dl-tile.claimed { --top: #3ec36a; --bot: #1c8a48; --edge: #0b3a1c; --rim: rgba(170, 255, 190, 0.4); }
+.dl-tile.claimed .dl-ico { display: none; }
+.dl-tile.claimed .dl-claimed { display: block; }
+.dl-tile.claimed .dl-day, .dl-tile.claimed .dl-amt { opacity: 0.45; }
+.dl-tile.today { animation: dl-pulse 1s ease-in-out infinite alternate; }
+@keyframes dl-pulse { to { transform: scale(1.05); } }
+
+/* --- claim button + countdown -------------------------------------------------- */
+.dl-claim {
+  --top: #4ed83c; --bot: #1c9a1e; --edge: #0b3a10; --rim: rgba(180, 255, 150, 0.45);
+  left: 234px;
+  top: 423px;
+  width: 300px;
+  height: 74px;
+  border-radius: 16px;
+  border: 5px solid var(--edge);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect x='6' y='6' width='18' height='18' rx='4' fill='none' stroke='white' stroke-opacity='.16' stroke-width='2'/%3E%3C/svg%3E") 0 0 / 30px 30px,
+    linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px var(--rim), inset 0 -10px 0 rgba(0, 0, 0, 0.14), 0 4px 0 rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dl-claim span { font-size: 56px; line-height: 62px; }
+.dl:not(.ready) .dl-claim { --top: #9a9aa2; --bot: #5e5e66; --edge: #26262c; --rim: rgba(255, 255, 255, 0.3); }
+.dl.ready .dl-claim { animation: dl-pulse 0.8s ease-in-out infinite alternate; }
+.dl-next { left: 0; top: 505px; width: 768px; margin: 0; text-align: center; font-size: 30px; line-height: 36px; color: #2c3150; }
+.dl-next.o-thin { -webkit-text-stroke: 0; text-shadow: none; }

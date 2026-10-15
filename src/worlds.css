@@ -1,0 +1,68 @@
+/* Worlds window: reuses the Rebirth window frame (.rb-win / .rb-head / .rb-body in rebirth.css), pink header. */
+.wd-win .rb-head {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34'%3E%3Crect x='6' y='6' width='22' height='22' rx='5' fill='none' stroke='white' stroke-opacity='.14' stroke-width='2.5'/%3E%3C/svg%3E") 4px 2px / 34px 34px,
+    linear-gradient(#ff5ad2, #e03aa8 60%, #c81a8a);
+  border-color: #5a0a3a;
+}
+.wd-icon { left: 14px; top: -30px; width: 118px; height: 118px; transform: rotate(-8deg); }
+.wd-win .rb-head h2 { left: 140px; }
+.wd-win .rb-body { overflow: hidden; }
+
+.wd-list {
+  position: absolute !important;
+  inset: 0;
+  padding: 36px 22px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: #8a8ea0 transparent;
+}
+.wd-row {
+  position: relative;
+  flex: none;
+  width: 716px;
+  height: 150px;
+  border-radius: 30px;
+  border: 5px solid var(--edge);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34'%3E%3Crect x='6' y='6' width='22' height='22' rx='5' fill='none' stroke='white' stroke-opacity='.18' stroke-width='2.5'/%3E%3C/svg%3E") 0 0 / 34px 34px,
+    linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35), inset 0 -10px 0 rgba(0, 0, 0, 0.12), 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+.wd-row > * { position: absolute; }
+.wd-name { left: 22px; top: 10px; font-size: 46px; line-height: 54px; white-space: nowrap; }
+.wd-tag { left: 22px; top: 66px; font-size: 28px; line-height: 34px; white-space: nowrap; }
+.wd-mult { left: 22px; bottom: 12px; font-size: 30px; line-height: 36px; white-space: nowrap; color: #fffbb0; }
+.wd-btn {
+  --top: #4ed83c; --bot: #1c9a1e; --edge: #0b3a10; --rim: rgba(180, 255, 150, 0.45);
+  right: 20px;
+  top: 28px;
+  width: 170px;
+  height: 84px;
+  border-radius: 16px;
+  border: 5px solid var(--edge);
+  background: linear-gradient(var(--top), var(--bot));
+  box-shadow: inset 0 0 0 3px var(--rim), inset 0 -10px 0 rgba(0, 0, 0, 0.14), 0 4px 0 rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wd-btn span { font-size: 36px; line-height: 40px; }
+.wd-row.locked { filter: grayscale(0.85) brightness(0.8); }
+.wd-row.locked .wd-btn, .wd-row.here .wd-btn { --top: #9a9aa2; --bot: #5e5e66; --edge: #26262c; --rim: rgba(255, 255, 255, 0.3); }
+
+/* Fade between worlds. */
+.wd-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+.wd-fade.on { opacity: 1; pointer-events: auto; }
