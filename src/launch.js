@@ -4,12 +4,12 @@
 //
 // Phases: idle -> grab -> shake -> rise -> fall -> land -> idle. `launch` is the read-only state
 // the animator (pose), camera (framing / shake) and player (input lock) consume.
-import { LAUNCH, LAUNCH_PAD, SPACE } from './config.js'
+import { LAUNCH, LAUNCH_PAD, SFX, SPACE } from './config.js'
 import { launchStuds } from './state.js'
 import { baseGravity, player } from './player.js'
 import { getYaw } from './camera.js'
 import { createLaunchFx } from './launchFx.js'
-import { playBurst, playShake, setFizz, stopFizz } from './sfx.js'
+import { playBurst, playCanShake, playCharge, setFizz, stopFizz } from './sfx.js'
 
 const TAU = Math.PI * 2
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -40,6 +40,7 @@ let apexY = 1 // real feet height of this launch's apex
 
 let fx = null
 let lastShakeCycle = 0
+let chargeSfx = false // pressure riser played for this shake
 let armed = true
 let impulse = 0 // burst kick for the camera shake, decays
 let sinceBurst = null // s since the can burst while the jet / column / fountain are still alive
@@ -95,6 +96,7 @@ export function updateLaunch(dt, camera, pixelHeight) {
         launch.canGone = false
         launch.shakePhase = 0
         lastShakeCycle = 0
+        chargeSfx = false
         setPhase('grab')
       }
       break
@@ -119,14 +121,20 @@ export function updateLaunch(dt, camera, pixelHeight) {
       launch.shakePhase = (launch.shakePhase + TAU * LAUNCH.shakeHz * (0.35 + 0.65 * launch.intensity) * dt) % (TAU * 1000)
       const canX = p.x + Math.sin(player.facing) * LAUNCH.canForward
       const canZ = p.z + Math.cos(player.facing) * LAUNCH.canForward
-      setFizz(launch.intensity)
+      const open = clamp01((u - 0.35) / 0.5) // 0 = sealed, only water inside
+      if (launch.charge < SFX.preBurstGap) setFizz(launch.intensity * open)
+      else stopFizz() // a beat of near-silence before the pop
       if (Math.floor(launch.shakePhase / TAU) !== lastShakeCycle) {
         lastShakeCycle = Math.floor(launch.shakePhase / TAU)
-        playShake()
+        playCanShake(launch.intensity, open)
       }
       if (launch.charge <= 0) fx?.hiss(canX, p.y + LAUNCH.canHeight, canZ, launch.intensity, dt) // mist hiss until the pressure build-up
       // Pressure build-up just before the pop: the can bulges, foam leaks and swells on the pad.
       launch.charge = clamp01((launch.t - (LAUNCH.shake - LAUNCH.fx.chargeTime)) / LAUNCH.fx.chargeTime)
+      if (launch.charge > 0 && !chargeSfx) {
+        chargeSfx = true
+        playCharge(LAUNCH.fx.chargeTime)
+      }
       if (launch.charge > 0) fx?.charge(canX, p.y + LAUNCH.canHeight, canZ, p.y, launch.charge, dt)
       if (launch.t >= LAUNCH.shake) {
         launch.charge = 0

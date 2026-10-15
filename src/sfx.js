@@ -71,18 +71,83 @@ function tone(t, { dur, vol, f0, f1 = f0, type = 'sine' }) {
   o.stop(t + dur + 0.05)
 }
 
-// One pump of the can in the hand: tin rattle + liquid slosh.
-export function playShake() {
+// One pump of the can in the hand: tin knock on both ends of the stroke, liquid slosh that swings
+// with the direction, and fizzy bubbles. `intensity` (0..1) = how hard the can is shaken: louder,
+// brighter, more bubbles. Every pump is randomised so it never repeats.
+let shakeDir = 1
+export function playShake(intensity = 0.35) {
   if (!ensure() || ctx.state !== 'running') return
   const t = ctx.currentTime
   if (t - lastShake < SFX.shakeMinGap) return
   lastShake = t
-  const v = SFX.shake
-  const r = () => 0.85 + Math.random() * 0.3
-  noiseHit(t, { dur: 0.05, vol: 0.5 * v, f0: 3200 * r(), q: 2.5 }) // tin knock
-  noiseHit(t + 0.07, { dur: 0.04, vol: 0.35 * v, f0: 2600 * r(), q: 2.5 })
-  tone(t, { dur: 0.06, vol: 0.12 * v, f0: 1500 * r(), f1: 1100, type: 'triangle' }) // metallic ring
-  noiseHit(t + 0.03, { dur: 0.22, vol: 0.5 * v, type: 'lowpass', f0: 1400, f1: 350, q: 0.7, attack: 0.04 }) // slosh
+  shakeDir = -shakeDir
+  const k = Math.max(0, Math.min(1, intensity))
+  const v = SFX.shake * (0.7 + 0.5 * k)
+  const r = (s = 0.15) => 1 - s + Math.random() * 2 * s
+  const up = shakeDir > 0 ? 1 : 0.88 // down-stroke sits a little lower in pitch
+  // Tin: the contents hit the top then the bottom of the can, with a short metallic ring.
+  noiseHit(t, { dur: 0.05, vol: 0.5 * v, f0: 3200 * r() * up, q: 2.5 })
+  noiseHit(t + 0.07 * (1 - 0.4 * k), { dur: 0.04, vol: 0.35 * v, f0: 2600 * r() * up, q: 2.5 })
+  tone(t, { dur: 0.07, vol: 0.12 * v, f0: 1500 * r() * up, f1: 1100, type: 'triangle' })
+  tone(t, { dur: 0.04, vol: 0.05 * v, f0: 2950 * r(), f1: 2500, type: 'triangle' })
+  // Liquid: the slosh sweeps up or down with the stroke; harder shakes are longer and brighter.
+  const a = shakeDir > 0 ? 450 : 1500
+  const b = shakeDir > 0 ? 1500 : 450
+  noiseHit(t + 0.03, { dur: 0.2 + 0.1 * k, vol: 0.5 * v, type: 'lowpass', f0: a * (1 + 0.5 * k), f1: b, q: 0.9, attack: 0.045 })
+  noiseHit(t + 0.05, { dur: 0.14, vol: 0.18 * v, f0: 900 * r(), f1: 2200 * r(), q: 1.4, attack: 0.05 }) // wet body
+  // Fizz: a spray of tiny bubble blips, more of them the harder the shake.
+  noiseHit(t + 0.04, { dur: 0.2 + 0.15 * k, vol: (0.05 + 0.2 * k) * v, type: 'highpass', f0: 4800 - 1200 * k, attack: 0.04 })
+  const bubbles = 1 + Math.round(k * 5)
+  for (let i = 0; i < bubbles; i++) {
+    const at = t + 0.05 + Math.random() * 0.18
+    const f = 900 + Math.random() * 1800
+    tone(at, { dur: 0.035, vol: 0.05 * v * (0.5 + Math.random()), f0: f, f1: f * 1.6 }) // "blip" rises like a real bubble
+  }
+}
+
+// Soda Jump shake heard from inside the sealed can: `open` (0..1) is how far into the shake we are.
+// At 0 it is only muffled liquid sloshing against the walls and a dull rattle; as it builds the
+// muffling opens up and bright tin knocks and bubbles creep in.
+export function playCanShake(intensity = 0.5, open = 0) {
+  if (!ensure() || ctx.state !== 'running') return
+  const t = ctx.currentTime
+  if (t - lastShake < SFX.shakeMinGap * 0.6) return
+  lastShake = t
+  shakeDir = -shakeDir
+  const k = Math.max(0, Math.min(1, intensity))
+  const o = Math.max(0, Math.min(1, open))
+  const v = SFX.shake * (0.8 + 0.5 * k)
+  const r = (s = 0.15) => 1 - s + Math.random() * 2 * s
+  const cut = SFX.muffleLow + (SFX.muffleHigh - SFX.muffleLow) * o // low-pass cutoff: the can wall
+  const up = shakeDir > 0
+  // Liquid slamming into the wall: deep wet thud + muffled swash that sweeps with the stroke.
+  tone(t, { dur: 0.09, vol: 0.32 * v, f0: (up ? 170 : 130) * r(), f1: 70 })
+  noiseHit(t, { dur: 0.05, vol: 0.4 * v, type: 'lowpass', f0: cut, f1: cut * 0.4, attack: 0.003 })
+  noiseHit(t + 0.02, { dur: 0.22 + 0.1 * k, vol: 0.55 * v, type: 'lowpass', f0: (up ? cut * 0.35 : cut) * r(), f1: up ? cut : cut * 0.35, q: 1.1, attack: 0.06 })
+  noiseHit(t + 0.06, { dur: 0.16, vol: 0.2 * v, type: 'bandpass', f0: (500 + 600 * o) * r(0.2), f1: 900 * r(0.2), q: 1.6, attack: 0.05 }) // watery gurgle
+  // Dull tin rattle through the wall (always quiet, never bright while still sealed).
+  noiseHit(t + 0.01, { dur: 0.045, vol: (0.14 + 0.2 * o) * v, type: 'lowpass', f0: cut * 1.2 * r(), q: 3 })
+  // As it opens up: crisp knocks and bubbles.
+  if (o > 0.3) {
+    const b = (o - 0.3) / 0.7
+    noiseHit(t, { dur: 0.045, vol: 0.4 * b * v, f0: 3000 * r(), q: 2.5 })
+    for (let i = 0, n = Math.round(b * 4); i < n; i++) {
+      const f = 900 + Math.random() * 1500
+      tone(t + 0.05 + Math.random() * 0.16, { dur: 0.035, vol: 0.05 * b * v, f0: f, f1: f * 1.6 })
+    }
+  }
+}
+
+// Last moments before the pop: groaning metal under pressure, rising whine, then one sharp tick.
+export function playCharge(dur = 0.2) {
+  if (!ensure() || ctx.state !== 'running') return
+  const t = ctx.currentTime
+  const v = SFX.burst
+  tone(t, { dur, vol: 0.1 * v, f0: 260, f1: 900, type: 'triangle' })
+  tone(t, { dur: dur * 0.8, vol: 0.05 * v, f0: 420, f1: 380, type: 'sawtooth' }) // metal creak
+  noiseHit(t, { dur, vol: 0.22 * v, type: 'bandpass', f0: 1500, f1: 6000, q: 1.5, attack: dur * 0.7 })
+  const at = t + dur * SFX.preBurstGap // then a beat of near-silence before the pop
+  noiseHit(at, { dur: 0.012, vol: 0.5 * v, type: 'highpass', f0: 5000, attack: 0.0005 }) // seal tick
 }
 
 // Carbonation hiss that follows the shake intensity (0..1); call with 0 or stopFizz to end it.
@@ -103,7 +168,7 @@ export function setFizz(intensity) {
     src.start()
     fizz = { src, gain, filter }
   }
-  fizz.gain.gain.setTargetAtTime(SFX.fizz * intensity, t, 0.08)
+  fizz.gain.gain.setTargetAtTime(SFX.fizz * intensity * intensity + 0.04 * SFX.fizz * intensity, t, 0.08) // swells nonlinearly
   fizz.filter.frequency.setTargetAtTime(3500 - 1200 * intensity, t, 0.1)
 }
 

@@ -1,5 +1,5 @@
 import { AdditiveBlending, CanvasTexture, Clock, Group, PointLight, Sprite, SpriteMaterial, Vector3, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
-import { CAMERA, PHYSICS, SPAWN, SPAWN_FACING } from './config.js'
+import { CAMERA, PHYSICS, SFX, SPAWN, SPAWN_FACING } from './config.js'
 import * as bloxity from './bloxity.js'
 import { inputState, pointerHeld, install as installInput } from './input.js'
 import { player, resetPlayer, rotateTowards, step as stepPlayer } from './player.js'
@@ -17,7 +17,7 @@ import { createTouchControls } from './touch.js'
 import { createHud } from './hud.js'
 import { initInteract, step as stepInteract } from './interact.js'
 import { isTouch } from './device.js'
-import { playShake, playSpend, playWins } from './sfx.js'
+import { playCanShake, setFizz, stopFizz, playSpend, playWins } from './sfx.js'
 import { gainSoda, landReward, notify, onSodaGain, runningBelt, state, subscribe } from './state.js'
 import { initNet, sendPose, syncAvatar } from './net.js'
 import { createRemotePlayers } from './remotePlayers.js'
@@ -167,9 +167,14 @@ async function loadAvatar() {
   }
 }
 
+// Holding the world builds the shake like the Soda Jump: muffled water first, then harder, brighter
+// and fizzier the longer it is held. Treadmill gains (no hold) stay at the base sound.
+let holdT = 0
+const holdK = () => Math.min(1, holdT / SFX.holdBuild)
 onSodaGain(() => {
   animator?.shake()
-  playShake()
+  const h = holdK()
+  playCanShake(0.4 + 0.5 * h, Math.max(SFX.clickOpen, h))
 })
 
 let signedIn = null
@@ -255,6 +260,12 @@ renderer.setAnimationLoop(() => {
   decks.userData.follow(player.position.x, player.position.y, player.position.z)
   flightHud.update(launch)
   if (pointerHeld.down) gainSoda()
+  if (launch.phase === 'idle') {
+    holdT = pointerHeld.down ? holdT + dt : 0
+    const h = holdK()
+    if (h > 0.3) setFizz(SFX.holdFizz * (h - 0.3) / 0.7)
+    else stopFizz()
+  }
   chest.set(player.position.x, player.position.y + 1.6, player.position.z).project(camera)
   playerScreen.x = chest.x * 0.5 + 0.5
   playerScreen.y = 0.5 - chest.y * 0.5
