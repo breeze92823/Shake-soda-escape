@@ -532,5 +532,8 @@ export const SFX = {
   ui: 0.35, // button click / hover
   levelUp: 0.6, // level-up fanfare
   claim: 0.6, // daily reward claim
+  muffleLow: 380, // Hz low-pass of the sealed can at the start of the Soda Jump shake (just water inside)
+  muffleHigh: 2600, // Hz once the shake has built up
+  preBurstGap: 0.7, // fraction of the charge time at which the fizz cuts out and the seal ticks, right before the pop
   shakeMinGap: 0.14, // s between rattles (treadmills gain very often)
 }
