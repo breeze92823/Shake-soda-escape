@@ -3,7 +3,7 @@
 // Plain DOM over the canvas, values from state.js. Rebirth opens its window
 // (rebirth.js); no store or other menus yet: the rest show a toast.
 import './hud.css'
-import { AURAS, BOOST_PASSES, SHOP, SODA_PACKS } from './config.js'
+import { AURAS, BOOST_PASSES, SHOP, SODA_PACKS, packPrice } from './config.js'
 import { notify, onSodaGain, rebirthLevel, rebirthMult, spendWins, state, subscribe, treadmillAt } from './state.js'
 import { playerScreen } from './screenPos.js'
 import { createRebirthWindow } from './rebirth.js'
@@ -80,7 +80,7 @@ function template() {
       (p, i) => `
       <button class="pack p-${p.color} pressable" data-act="pack" data-i="${i}" style="left:${-445 + i * 223}px">
         ${icon('cup')}<span class="o" data-bind="pack${i}"></span>
-        <b class="price"><i>${ICONS.trophy}</i><span class="o-thin">${short(p.price)}</span></b>
+        <b class="price"><i>${ICONS.trophy}</i><span class="o-thin" data-bind="packPrice${i}">${short(p.price)}</span></b>
       </button>`,
     ).join('')}
   </div>
@@ -145,7 +145,8 @@ export function createHud({ showMenu }) {
     },
     pack: (el) => {
       const p = SODA_PACKS[el.dataset.i]
-      if (!spendWins(p.price)) return say(`Need ${short(p.price)} Wins`)
+      const price = packPrice(p, state.soda)
+      if (!spendWins(price)) return say(`Need ${short(price)} Wins`)
       const n = state.soda * p.mult
       state.soda += n
       notify()
@@ -172,7 +173,10 @@ export function createHud({ showMenu }) {
     if (maxed && !wasMaxed) say(`Level ${s.level} reached - Rebirth to keep levelling!`)
     wasMaxed = maxed
     bind.fill.style.width = `${Math.min(100, (s.xp / s.xpNext) * 100)}%`
-    SODA_PACKS.forEach((p, i) => (bind[`pack${i}`].textContent = `+${short(s.soda * p.mult)}`))
+    SODA_PACKS.forEach((p, i) => {
+      bind[`pack${i}`].textContent = `+${short(s.soda * p.mult)}`
+      bind[`packPrice${i}`].textContent = short(packPrice(p, s.soda))
+    })
   })
 
   // Level-up banner: pops in when the level rises (not on load or a rebirth reset).

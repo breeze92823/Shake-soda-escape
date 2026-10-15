@@ -487,12 +487,15 @@ export const DAILY = {
 export const SODA_GAIN = { interval: 1 }
 export const levelXp = (level) => 20 + 3 * (level - 1) // xp to clear `level`: 20, 23, 26, ...
 // Bottom soda packs: grant `mult` x current soda; price in Wins.
+// `price` is the floor (early game); the real price grows with the player's soda: max(price, soda x mult x rate),
+// so packs get far more expensive as the player levels / rebirths and their soda total balloons.
 export const SODA_PACKS = [
-  { mult: 0.5, price: 500, color: 'orange' },
-  { mult: 1.5, price: 5000, color: 'blue' },
-  { mult: 3, price: 60000, color: 'red' },
-  { mult: 7.5, price: 1500000, color: 'purple' },
+  { mult: 0.5, price: 500, rate: 0.02, color: 'orange' },
+  { mult: 1.5, price: 5000, rate: 0.04, color: 'blue' },
+  { mult: 3, price: 60000, rate: 0.08, color: 'red' },
+  { mult: 7.5, price: 1500000, rate: 0.16, color: 'purple' },
 ]
+export const packPrice = (p, soda) => Math.max(p.price, Math.ceil(soda * p.mult * p.rate))
 // Right-side boost passes (one-time, price in Wins). x2 Soda doubles every soda gain; x2 Wins is stored for when Wins are earned.
 // Aura window: each aura is bought once with Wins (`price`) and, while equipped (one at a time), multiplies
 // every soda gain by `mult`. `hue` tints the icon, `top`/`bot`/`edge` colour the row.
