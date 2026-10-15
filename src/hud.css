@@ -160,6 +160,7 @@
 /* Short screens can't fit the full 991 px column: the side groups shrink and pin to the
    top (left under the system buttons, right under the touch menu) to clear the bottom bar. */
 #hud.mob { --ss: calc(var(--s) * 0.8); }
+#hud.mob .a-bc { transform: scale(calc(var(--s) * 0.72)); }
 #hud.mob .a-l { top: calc(62px + 214px * var(--ss)); transform: scale(var(--ss)); }
 #hud.mob .a-r { top: calc(66px + 15px * var(--ss)); transform: scale(var(--ss)); }
 html.touch #hud .sys-pill .menu-btn { display: none; }

@@ -4,6 +4,7 @@
 import { Group } from 'three'
 import { NET, PHYSICS } from './config.js'
 import { net } from './net.js'
+import { remoteBelts, state } from './state.js'
 import { disposeLabel, makeLabel } from './labels.js'
 import { buildDefaultCharacter, loadBaseCharacter } from './avatar/character.js'
 import { applyProportions, attachEquippedAccessories } from './avatar/loader.js'
@@ -87,9 +88,11 @@ class Remote {
     this.vy = this.placed ? this.vy + ((g.position.y - prevY) / dt - this.vy) * Math.min(1, dt * 10) : 0
     this.placed = true
 
+    // On a treadmill the avatar stays put but runs at full gait, like the local player.
+    const onBelt = p.belt >= 0 && p.grounded
     this.animator.update(dt, {
       grounded: p.grounded,
-      speed: p.speed01 * PHYSICS.moveSpeed,
+      speed: (onBelt ? 1 : p.speed01) * PHYSICS.moveSpeed,
       verticalVelocity: this.vy,
       turn: 0,
     })
@@ -112,6 +115,7 @@ export function createRemotePlayers(scene) {
     update(dt, viewer) {
       const players = net.players
       const mine = net.sessionId
+      remoteBelts.clear()
       if (!players || !net.connected) {
         for (const r of remotes.values()) r.dispose(root)
         remotes.clear()
@@ -130,8 +134,10 @@ export function createRemotePlayers(scene) {
         let r = remotes.get(id)
         if (!r) remotes.set(id, (r = new Remote(root)))
         r.group.visible = d < NET.remoteFade
-        if (r.group.visible) r.update(p, dt)
-        else {
+        if (r.group.visible) {
+          r.update(p, dt)
+          if (p.belt >= 0 && state.world === 'lobby') remoteBelts.add(p.belt) // the lobby's belt runs for everyone
+        } else {
           r.placed = false // out of range: skip the work, snap into place when it comes back
           r.group.position.set(p.x, p.y, p.z)
         }

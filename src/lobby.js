@@ -29,7 +29,7 @@ import { checkerTexture, studBox, studTexture } from './textures.js'
 import { makeLabel } from './labels.js'
 import { sodaItem } from './sodaItems.js'
 import { addZone } from './interact.js'
-import { notify, runningBelt, sodaStatus, state, subscribe } from './state.js'
+import { notify, remoteBelts, runningBelt, sodaStatus, state, subscribe } from './state.js'
 import { net, onLeaderboard } from './net.js'
 import { short } from './hud.js'
 
@@ -977,7 +977,7 @@ function treadmill(group, spec, x, z, top, updaters, index) {
   tex.needsUpdate = true
   const belt = new Mesh(new PlaneGeometry(length, width), new MeshStandardMaterial({ map: tex, ...PLASTIC }))
   updaters.push((t, dt) => {
-    if (runningBelt() === index) tex.offset.x = (tex.offset.x - player.moveSpeed * dt) % 1 // one tile = 1 m
+    if (runningBelt() === index || remoteBelts.has(index)) tex.offset.x = (tex.offset.x - player.moveSpeed * dt) % 1 // one tile = 1 m
   })
   belt.rotation.x = -Math.PI / 2
   belt.position.y = height + 0.01
