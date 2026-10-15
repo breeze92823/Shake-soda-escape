@@ -1,10 +1,10 @@
-import { Clock, Group, Vector3, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
+import { AdditiveBlending, CanvasTexture, Clock, Group, PointLight, Sprite, SpriteMaterial, Vector3, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
 import { CAMERA, PHYSICS, SPAWN, SPAWN_FACING } from './config.js'
 import * as bloxity from './bloxity.js'
 import { inputState, pointerHeld, install as installInput } from './input.js'
 import { player, resetPlayer, rotateTowards, step as stepPlayer } from './player.js'
 import { syncYawToPlayer, update as updateCamera } from './camera.js'
-import { createFog, createGround, createLights, createSky, createSkyDecor } from './world.js'
+import { createCloudDecks, createFog, createGround, createLights, createSky, createSkyDecor } from './world.js'
 import { createLobby } from './lobby.js'
 import { initLaunch, launch, onLaunchLand, updateLaunch } from './launch.js'
 import { buildDefaultCharacter, loadBaseCharacter } from './avatar/character.js'
@@ -17,11 +17,14 @@ import { createTouchControls } from './touch.js'
 import { createHud } from './hud.js'
 import { initInteract, step as stepInteract } from './interact.js'
 import { isTouch } from './device.js'
-import { gainSoda, landReward, notify, onSodaGain, runningBelt, state } from './state.js'
+import { playShake, playSpend, playWins } from './sfx.js'
+import { gainSoda, landReward, notify, onSodaGain, runningBelt, state, subscribe } from './state.js'
 import { initNet, sendPose, syncAvatar } from './net.js'
 import { createRemotePlayers } from './remotePlayers.js'
 import { createFlightHud } from './flightHud.js'
 import { createSpace } from './space.js'
+import { createWorlds } from './worlds.js'
+import { createBlackHole } from './blackhole.js'
 import { short } from './hud.js'
 import { playerScreen } from './screenPos.js'
 
@@ -68,9 +71,10 @@ const lobby = createLobby()
 const sky = createSky()
 const decor = createSkyDecor()
 const ground = createGround()
-scene.add(sky, decor, ground, lobby.group)
+const decks = createCloudDecks()
+scene.add(sky, decor, decks, ground, lobby.group)
 const lights = createLights()
-const space = createSpace({ sky, decor, ground, lobby: lobby.group, tower: lobby.tower, fog: scene.fog, hemi: lights.hemi })
+const space = createSpace({ sky, decor, decks, fog: scene.fog, hemi: lights.hemi })
 const flightHud = createFlightHud()
 scene.add(lights.hemi, lights.sun, lights.sun.target)
 initLaunch(scene)
@@ -78,6 +82,9 @@ createTouchControls({ showMenu: bloxity.showMenu })
 const hud = createHud({ showMenu: bloxity.showMenu })
 initInteract({ say: hud.say })
 const remotes = createRemotePlayers(scene)
+const blackhole = createBlackHole(scene)
+const worlds = createWorlds({ scene, lobby, ground, space, lights, say: hud.say, remotes, blackhole })
+worlds.enter('lobby')
 initNet() // saves/loads progress and joins the shared room (no-op without a server)
 // Landing pays Wins for the peak altitude and updates the Record.
 onLaunchLand((peak) => {
@@ -88,6 +95,18 @@ onLaunchLand((peak) => {
   hud.say(`+${short(reward)} Wins`)
 })
 
+// Wins sounds for every source (landing, daily, shop, purchases): react to the balance changing.
+// The first seconds are ignored so loading the saved balance stays silent.
+let lastWins = state.wins
+const winsSoundFrom = performance.now() + 4000
+subscribe((s) => {
+  const d = s.wins - lastWins
+  lastWins = s.wins
+  if (d === 0 || performance.now() < winsSoundFrom) return
+  if (d > 0) playWins(d >= 1000)
+  else playSpend()
+})
+
 // --- Player avatar ----------------------------------------------------------
 // Always the game's own character (player.glb, or the procedural fallback). A
 // signed-in player's equipped Bloxity cosmetics are attached to it and the
@@ -96,6 +115,25 @@ onLaunchLand((peak) => {
 const playerGroup = new Group()
 scene.add(playerGroup)
 const auraFx = createAuraFx(playerGroup)
+// Summit light burst: a big additive halo + point light on the player while launch.warp is up.
+const warpGlow = (() => {
+  const c = document.createElement('canvas')
+  c.width = c.height = 128
+  const g = c.getContext('2d')
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.3, 'rgba(255,240,170,0.6)')
+  grad.addColorStop(1, 'rgba(255,200,80,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 128, 128)
+  const sprite = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), blending: AdditiveBlending, transparent: true, depthWrite: false, fog: false }))
+  sprite.position.y = 1
+  sprite.visible = false
+  const light = new PointLight('#fff1b0', 0, 40)
+  light.position.y = 1
+  playerGroup.add(sprite, light)
+  return { sprite, light }
+})()
 
 let avatar = null
 let animator = null
@@ -127,7 +165,10 @@ async function loadAvatar() {
   }
 }
 
-onSodaGain(() => animator?.shake())
+onSodaGain(() => {
+  animator?.shake()
+  playShake()
+})
 
 let signedIn = null
 bloxity.subscribeAuth((s) => {
@@ -159,14 +200,22 @@ bloxity.onSetting((key, value) => {
 // --- Loop -------------------------------------------------------------------
 const clock = new Clock()
 const chest = new Vector3()
+let summitFired = false
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1) // clamp huge frames (tab switch, breakpoint)
   updateLaunch(dt, camera, renderer.domElement.height)
   stepPlayer(dt)
+  blackhole.update(dt, clock.elapsedTime)
+  launch.shake = Math.max(launch.shake, blackhole.state.shake)
   stepInteract()
   hud.update()
-  lobby.update(clock.elapsedTime, dt)
+  worlds.update(clock.elapsedTime, dt)
+  // The 20K Summit: unlock + warp to the next world (once per launch).
+  if (launch.warp > 0.5 && !summitFired) {
+    summitFired = true
+    worlds.summit()
+  } else if (launch.phase === 'idle') summitFired = false
   auraFx.update(clock.elapsedTime, dt)
 
   // On an unlocked belt: soda gains automatically (as a click would, 1s cooldown) and the player runs
@@ -178,7 +227,9 @@ renderer.setAnimationLoop(() => {
   }
 
   playerGroup.position.set(player.position.x, player.position.y, player.position.z)
-  playerGroup.rotation.y = player.facing // player.js turns the heading at a fixed rate
+  playerGroup.rotation.y = player.facing + blackhole.state.spin // player.js turns the heading at a fixed rate
+  playerGroup.rotation.x = blackhole.state.tumble
+  playerGroup.scale.setScalar(blackhole.state.scale)
   animator?.update(dt, {
     grounded: player.grounded,
     speed: onBelt ? Math.max(player.moveSpeed, Math.hypot(player.velocity.x, player.velocity.z)) : Math.hypot(player.velocity.x, player.velocity.z),
@@ -191,6 +242,14 @@ renderer.setAnimationLoop(() => {
   remotes.update(dt, player.position)
   updateCamera(camera, dt)
   space.update(Math.round(launch.altitude))
+  const w = launch.warp
+  warpGlow.sprite.visible = w > 0
+  warpGlow.sprite.scale.setScalar((6 + 5 * Math.sin(performance.now() * 0.012)) * w + 0.01)
+  warpGlow.sprite.material.opacity = w
+  warpGlow.light.intensity = 400 * w
+  sky.position.copy(camera.position)
+  decor.position.copy(camera.position)
+  decks.userData.follow(player.position.x, player.position.y, player.position.z)
   flightHud.update(launch)
   if (pointerHeld.down) gainSoda()
   chest.set(player.position.x, player.position.y + 1.6, player.position.z).project(camera)
@@ -205,5 +264,5 @@ window.addEventListener('beforeunload', bloxity.teardown)
 
 // Dev-only console hook, e.g. __game.teleport(10, 0, -5)
 if (import.meta.env.DEV) {
-  window.__game = { player, teleport: (x, y, z, facing = player.facing) => { resetPlayer({ x, y, z }, facing); syncYawToPlayer() } }
+  window.__game = { player, worlds, teleport: (x, y, z, facing = player.facing) => { resetPlayer({ x, y, z }, facing); syncYawToPlayer() } }
 }

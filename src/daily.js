@@ -4,6 +4,7 @@
 import './daily.css'
 import { DAILY } from './config.js'
 import { notify, now, state, subscribe } from './state.js'
+import { playClaim } from './sfx.js'
 import { ICONS } from './icons.js'
 import { short } from './hud.js'
 
@@ -111,6 +112,7 @@ export function createDailyWindow(hudRoot, say) {
     state.dailyClaimedAt = now()
     notify()
     render()
+    playClaim()
     say(`Daily reward: ${reward(r).text}!`)
   }
   const ACTIONS = { close, claim }

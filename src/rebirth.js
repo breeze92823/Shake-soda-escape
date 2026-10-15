@@ -3,10 +3,8 @@
 // (Bloxbux, keeps levels; no store yet: toasts). Lives inside the HUD root, in
 // the same 1920x991 reference space.
 import './rebirth.css'
-import { REBIRTH } from './config.js'
-import { canRebirth, rebirth, rebirthLevel, rebirthMult, spendWins, state, subscribe } from './state.js'
+import { canRebirth, rebirth, rebirthLevel, rebirthMult, setAutoRebirth, state, subscribe } from './state.js'
 import { ICONS } from './icons.js'
-import { short } from './hud.js'
 
 const cell = (cls, ico, bind) => `<div class="rb-cell ${cls}">${ico}<span class="o" data-rb="${bind}"></span></div>`
 
@@ -26,9 +24,8 @@ function template() {
       <p class="rb-warn o-thin">Rebirthing resets your level!</p>
       <div class="rb-bar"><div class="fill" data-rb="fill"></div><span class="o-thin" data-rb="progress"></span></div>
       <button class="rb-btn rb-go pressable" data-rb-act="rebirth"><span class="o">Rebirth</span></button>
-      <button class="rb-btn rb-skip pressable" data-rb-act="skip">
-        <span class="o-thin">Skip Rebirth</span><small class="o-thin">KEEP LEVELS!</small>
-        <b class="price"><i>${ICONS.trophy}</i><span class="o-thin">${short(REBIRTH.skipPrice)}</span></b>
+      <button class="rb-btn rb-skip pressable" data-rb-act="auto">
+        <span class="o-thin">Auto Rebirth</span><small class="o-thin" data-rb="autoState">OFF</small>
       </button>
     </div>
     <div class="rb-head">
@@ -70,10 +67,9 @@ export function createRebirthWindow(hudRoot, say) {
       if (rebirth()) say(`Rebirth ${state.rebirths}! x${rebirthMult(state.rebirths).toFixed(1)} Soda`)
       else say(`Reach Level ${rebirthLevel(state.rebirths)} to Rebirth!`)
     },
-    skip: () => {
-      if (!spendWins(REBIRTH.skipPrice)) return say(`Need ${short(REBIRTH.skipPrice)} Wins`)
-      rebirth({ keepLevel: true })
-      say(`Rebirth ${state.rebirths}! Levels kept - x${rebirthMult(state.rebirths).toFixed(1)} Soda`)
+    auto: () => {
+      setAutoRebirth(!state.autoRebirth)
+      say(`Auto Rebirth ${state.autoRebirth ? 'ON' : 'OFF'}`)
     },
   }
   root.addEventListener('click', (e) => {
@@ -93,6 +89,8 @@ export function createRebirthWindow(hudRoot, say) {
     bind.progress.textContent = `Level ${Math.min(s.level, need)}/${need}`
     bind.fill.style.width = `${Math.min(100, (s.level / need) * 100)}%`
     root.classList.toggle('ready', canRebirth())
+    bind.autoState.textContent = s.autoRebirth ? 'ON' : 'OFF'
+    bind.autoState.parentElement.classList.toggle('on', !!s.autoRebirth)
   })
 
   return { open, close, toggle: () => (root.hidden ? open() : close()) }

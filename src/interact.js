@@ -5,7 +5,7 @@
 // cannot be confirmed. Same gate as Laser-Escape's systems/interact.js + interactHold.js.
 import { INTERACT } from './config.js'
 import { isInteractDown } from './input.js'
-import { player } from './player.js'
+import { getActiveWorld, getBuildWorld, player } from './player.js'
 import { createPrompt } from './prompt.js'
 
 const zones = []
@@ -14,9 +14,10 @@ let say = () => {}
 let ownerKey = null
 let startedAt = 0
 
-// zone: { key, x, y, z, prompt() -> { text, hold } | null, run() }
+// zone: { key, x, y, z, prompt() -> { text, hold } | null, run() }. Belongs to the world being built
+// (setBuildWorld in player.js); only the active world's zones can be used.
 export function addZone(zone) {
-  zones.push(zone)
+  zones.push({ ...zone, world: getBuildWorld() })
 }
 
 export function initInteract({ say: toast }) {
@@ -31,7 +32,7 @@ function nearest() {
   let best = null
   let bestD = r2
   for (const z of zones) {
-    if (Math.abs(p.y - z.y) > INTERACT.padHeight) continue
+    if (z.world !== getActiveWorld() || Math.abs(p.y - z.y) > INTERACT.padHeight) continue
     const d = (p.x - z.x) ** 2 + (p.z - z.z) ** 2
     if (d <= bestD) {
       bestD = d

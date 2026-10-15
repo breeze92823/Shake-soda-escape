@@ -12,6 +12,7 @@ import {
   SRGBColorSpace,
   TorusGeometry,
 } from 'three'
+import { WORLD_SODAS } from './config.js'
 
 const flat = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.55, metalness: 0, ...extra })
 
@@ -125,6 +126,29 @@ export function sodaItem(kind) {
       for (let i = 0; i < 5; i++) {
         const a = (i / 5) * Math.PI * 2
         add(new Mesh(new ConeGeometry(0.1, 0.3, 6), gold), Math.cos(a) * 0.4, 1.22, Math.sin(a) * 0.4)
+      }
+      break
+    }
+    default: {
+      // World sodas (WORLD_SODAS): a can, bottle or cup in the soda's colours.
+      const look = Object.values(WORLD_SODAS).flat().find((s) => s.kind === kind)?.look
+      if (!look) break
+      const glowing = look.glow ? { emissive: look.accent, emissiveIntensity: 0.35 } : {}
+      const body = flat(look.color, { roughness: 0.35, ...glowing })
+      const trim = flat(look.accent, look.glow ? { emissive: look.accent, emissiveIntensity: 1 } : {})
+      const metal = flat('#cfd3d8', { metalness: 0.6, roughness: 0.3 })
+      if (look.shape === 'can') {
+        add(new Mesh(new CylinderGeometry(0.38, 0.38, 1.0, 24), body), 0, 0.5, 0)
+        add(new Mesh(new CylinderGeometry(0.39, 0.39, 0.24, 24), trim), 0, 0.5, 0)
+        add(new Mesh(new CylinderGeometry(0.33, 0.38, 0.06, 24), metal), 0, 1.03, 0)
+      } else if (look.shape === 'bottle') {
+        add(new Mesh(new SphereGeometry(0.44, 24, 16), body), 0, 0.44, 0)
+        add(new Mesh(new CylinderGeometry(0.11, 0.15, 0.4, 12), body), 0, 0.95, 0)
+        add(new Mesh(new CylinderGeometry(0.15, 0.15, 0.12, 12), trim), 0, 1.2, 0)
+      } else {
+        add(new Mesh(new CylinderGeometry(0.4, 0.3, 0.8, 24), body), 0, 0.4, 0)
+        add(new Mesh(new SphereGeometry(0.37, 20, 12), flat('#ffffff', { roughness: 0.5 })), 0, 0.85, 0)
+        add(new Mesh(new CylinderGeometry(0.04, 0.04, 0.7, 8), trim), 0.12, 1.3, 0).rotation.z = -0.25
       }
       break
     }

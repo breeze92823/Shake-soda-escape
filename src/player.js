@@ -1,4 +1,5 @@
 import { inputState } from './input.js'
+import { playLand } from './sfx.js'
 import { getYaw, syncYawToPlayer } from './camera.js'
 import { GROUND_Y, PHYSICS, PLAYER_DIMS, SPAWN, SPAWN_FACING, STEP_UP, WORLD_BOUNDS } from './config.js'
 
@@ -11,6 +12,7 @@ export const player = {
   facing: Math.PI, // yaw the character model faces, radians
   moveSpeed: PHYSICS.moveSpeed,
   dims: { ...PLAYER_DIMS },
+  gravity: PHYSICS.gravity, // m/s^2; launch.js lowers it so a launch hangs in the air (reset on touchdown)
   locked: false, // scripted sequence (launch.js) owns the player: input is ignored
 }
 
@@ -31,9 +33,26 @@ export function respawn() {
 
 // Solid axis-aligned boxes the world registers: { minX, maxX, minZ, maxZ, top }.
 // A box whose top is within STEP_UP of the feet is floor; anything taller is a wall.
+// Each box belongs to the world being built (setBuildWorld); only the active world's boxes collide.
 const solids = []
+let buildWorld = 'lobby'
+let activeWorld = 'lobby'
+const bounds = { ...WORLD_BOUNDS }
 export function addSolid(box) {
-  solids.push(box)
+  solids.push({ ...box, world: buildWorld })
+}
+export const setBuildWorld = (id) => { buildWorld = id }
+export const getBuildWorld = () => buildWorld
+export const getActiveWorld = () => activeWorld
+let baseG = PHYSICS.gravity
+let grip = 1 // < 1: ice, slow to start and slow to stop
+export const baseGravity = () => baseG // resting gravity of the active world (launch.js restores it after a flight)
+export function setActiveWorld(id, { b = WORLD_BOUNDS, gravity = PHYSICS.gravity, grip: g = 1 } = {}) {
+  activeWorld = id
+  grip = g
+  Object.assign(bounds, b)
+  baseG = gravity
+  player.gravity = gravity
 }
 
 // Highest walkable surface under (x, z) reachable from feet height y.
@@ -42,6 +61,7 @@ export function floorAt(x, z, y = Infinity) {
   let floor = GROUND_Y
   if (x === undefined) return floor
   for (const b of solids) {
+    if (b.world !== activeWorld) continue
     if (b.top > floor && b.top <= y + STEP_UP && x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ) floor = b.top
   }
   return floor
@@ -50,7 +70,7 @@ export function floorAt(x, z, y = Infinity) {
 // Pushes the capsule (circle of radius r in plan) out of every box too tall to step onto.
 function collideSolids(p, v, r) {
   for (const b of solids) {
-    if (b.top <= p.y + STEP_UP) continue
+    if (b.world !== activeWorld || b.top <= p.y + STEP_UP) continue
     const cx = Math.max(b.minX, Math.min(b.maxX, p.x))
     const cz = Math.max(b.minZ, Math.min(b.maxZ, p.z))
     const dx = p.x - cx
@@ -126,7 +146,7 @@ export function step(dt) {
   const wishZ = (fwdZ * mv.z + rightZ * mv.x) * scale
 
   // Snappy start, slightly softer stop; both scale with the walk speed.
-  const rate = (len > 0.01 ? PHYSICS.accel : PHYSICS.decel) * Math.max(1, player.moveSpeed / PHYSICS.moveSpeed)
+  const rate = (len > 0.01 ? PHYSICS.accel : PHYSICS.decel) * Math.max(1, player.moveSpeed / PHYSICS.moveSpeed) * (len > 0.01 ? Math.max(grip, 0.5) : grip)
   approach2D(player.velocity, wishX * player.moveSpeed, wishZ * player.moveSpeed, rate * dt)
 
   if (inputState.jump) {
@@ -136,20 +156,23 @@ export function step(dt) {
   player.grounded = false
 
   const p = player.position
-  player.velocity.y += PHYSICS.gravity * dt
+  player.velocity.y += player.gravity * dt
   p.x += player.velocity.x * dt
   p.y += player.velocity.y * dt
   p.z += player.velocity.z * dt
 
   const r = player.dims.radius
-  p.x = Math.max(WORLD_BOUNDS.minX + r, Math.min(WORLD_BOUNDS.maxX - r, p.x))
-  p.z = Math.max(WORLD_BOUNDS.minZ + r, Math.min(WORLD_BOUNDS.maxZ - r, p.z))
+  p.x = Math.max(bounds.minX + r, Math.min(bounds.maxX - r, p.x))
+  p.z = Math.max(bounds.minZ + r, Math.min(bounds.maxZ - r, p.z))
   collideSolids(p, player.velocity, r)
 
   const groundY = floorAt(p.x, p.z, p.y)
   if (p.y <= groundY) {
     p.y = groundY
-    if (player.velocity.y < 0) player.velocity.y = 0
+    if (player.velocity.y < 0) {
+      playLand(-player.velocity.y)
+      player.velocity.y = 0
+    }
     player.grounded = true
   }
 

@@ -22,8 +22,8 @@ import { studTexture } from './textures.js'
 // three lights. No imported assets.
 
 // Studded green baseplate, like a Roblox Baseplate part.
-export function createGround() {
-  const map = studTexture(COLORS.baseplate, 0.5, 0.55).clone()
+export function createGround(color = COLORS.baseplate, contrast = 0.55) {
+  const map = studTexture(color, 0.5, contrast).clone()
   const tile = map.userData.tileMetres
   map.repeat.set(GROUND_SIZE / tile, GROUND_SIZE / tile)
   map.needsUpdate = true
@@ -49,10 +49,11 @@ export function createSky() {
         dark: { value: 0 },
         stars: { value: 0 },
         nebula: { value: 0 },
+        limb: { value: 0 },
       },
       vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: `
-        uniform vec3 top; uniform vec3 bottom; uniform float dark; uniform float stars; uniform float nebula; varying vec3 vDir;
+        uniform vec3 top; uniform vec3 bottom; uniform float dark; uniform float stars; uniform float nebula; uniform float limb; varying vec3 vDir;
         float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         float noise(vec3 x) {
           vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -73,6 +74,9 @@ export function createSky() {
             vec3 night = vec3(0.004, 0.004, 0.02) + neb * nebula + vec3(star) * stars;
             col = mix(col, night, dark);
           }
+          // Atmosphere rim: a bright band hugging the horizon, thicker the higher you climb.
+          float rim = exp(-pow(d.y * (7.0 - 3.0 * limb), 2.0)) * limb;
+          col += bottom * rim * 0.6 + vec3(0.25, 0.4, 0.9) * rim * 0.25 * dark;
           gl_FragColor = vec4(col, 1.0);
         }`,
     }),
@@ -151,6 +155,57 @@ export function createSkyDecor() {
     cloudMat.opacity = f
     for (const r of rainbows) r.material.uniforms.fade.value = f
     group.visible = f > 0.01
+  }
+  return group
+}
+
+// Cloud decks the player climbs through on a launch: wide translucent noise layers at fixed heights, each
+// tinted like a band of the atmosphere (white troposphere -> gold -> rose -> violet). They follow the player
+// in x/z, fade in as the camera nears them, and are only shown while flying (space.js sets `fade`).
+const DECK_TINTS = ['#ffffff', '#ffe9b8', '#ffc4d8', '#c9b6ff', '#8fb4ff']
+export const CLOUD_DECKS = Array.from({ length: 16 }, (_, i) => ({ y: 30 + i * 45, color: DECK_TINTS[i % DECK_TINTS.length], scale: 0.016 - i * 0.0006 }))
+export function createCloudDecks() {
+  const group = new Group()
+  const geo = new PlaneGeometry(700, 700)
+  const decks = CLOUD_DECKS.map((d, i) => {
+    const mat = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+      uniforms: { color: { value: new Color(d.color) }, fade: { value: 0 }, seed: { value: i * 11.7 }, scale: { value: d.scale }, camY: { value: 0 } },
+      vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: `
+        uniform vec3 color; uniform float fade; uniform float seed; uniform float scale; uniform float camY; varying vec3 vW;
+        float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+        void main() {
+          vec2 p = vW.xz * scale + seed;
+          float d = 0.5 * n(p) + 0.3 * n(p * 2.1) + 0.2 * n(p * 4.3);
+          float cloud = smoothstep(0.5, 0.78, d);
+          float near = smoothstep(70.0, 6.0, abs(vW.y - camY)); // thin out when far above / below the camera
+          float edge = smoothstep(350.0, 120.0, length(vW.xz - cameraPosition.xz));
+          gl_FragColor = vec4(color, cloud * near * edge * fade * 0.85);
+        }`,
+    })
+    const m = new Mesh(geo, mat)
+    m.rotation.x = -Math.PI / 2
+    m.position.y = d.y
+    m.renderOrder = 2
+    group.add(m)
+    return m
+  })
+  group.visible = false
+  group.userData.setFade = (f) => {
+    group.visible = f > 0.01
+    for (const m of decks) m.material.uniforms.fade.value = f
+  }
+  group.userData.follow = (x, y, z) => {
+    for (const m of decks) {
+      m.position.x = x
+      m.position.z = z
+      m.material.uniforms.camY.value = y
+    }
   }
   return group
 }

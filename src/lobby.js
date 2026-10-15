@@ -1,6 +1,7 @@
-import {
+﻿import {
   AdditiveBlending,
   BoxGeometry,
+  Color,
   CanvasTexture,
   ConeGeometry,
   CylinderGeometry,
@@ -20,6 +21,7 @@ import {
   SpriteMaterial,
   SRGBColorSpace,
   TorusGeometry,
+  Vector3,
 } from 'three'
 import { ARENA, COLORS, DISPLAY, LAUNCH_PAD, PORTAL, SHOP, SODA_ITEMS, SOUTH, TOWER, VOID_NPC, VOID_SODA } from './config.js'
 import { addSolid, player } from './player.js'
@@ -38,10 +40,10 @@ import { short } from './hud.js'
 // plus colliders; no gameplay.
 
 const PLASTIC = { roughness: 0.55, metalness: 0 }
-const solid = (minX, maxX, minZ, maxZ, top) => addSolid({ minX, maxX, minZ, maxZ, top })
+export const solid = (minX, maxX, minZ, maxZ, top) => addSolid({ minX, maxX, minZ, maxZ, top })
 
 // A box with studded plastic on every face, base at y.
-function brick(w, h, d, color, x, y, z, { studs = true, collide = true, emissive } = {}) {
+export function brick(w, h, d, color, x, y, z, { studs = true, collide = true, emissive } = {}) {
   const map = studs ? studTexture(color) : null
   const mesh = new Mesh(
     studs ? studBox(w, h, d, map.userData.tileMetres) : new BoxGeometry(w, h, d),
@@ -53,12 +55,12 @@ function brick(w, h, d, color, x, y, z, { studs = true, collide = true, emissive
   return mesh
 }
 
-const flat = (color, extra = {}) => new MeshStandardMaterial({ color, ...PLASTIC, ...extra })
-const glowMat = (color) => new MeshBasicMaterial({ color, toneMapped: false })
+export const flat = (color, extra = {}) => new MeshStandardMaterial({ color, ...PLASTIC, ...extra })
+export const glowMat = (color) => new MeshBasicMaterial({ color, toneMapped: false })
 
 // Soft radial glow sprite (additive).
 let glowTex = null
-function glow(color, size, opacity = 0.8) {
+export function glow(color, size, opacity = 0.8) {
   if (!glowTex) {
     const c = document.createElement('canvas')
     c.width = c.height = 128
@@ -77,10 +79,11 @@ function glow(color, size, opacity = 0.8) {
 }
 
 // --- Arena walls ----------------------------------------------------------------
-function buildWalls(group) {
-  const { minX, maxX, minZ, maxZ, wallHeight: h, capHeight: cap, wallThickness: t } = ARENA
-  const brickTex = checkerTexture(COLORS.wallA, COLORS.wallB)
-  const capTex = studTexture(COLORS.wallCap)
+export function buildWalls(group, style = {}) {
+  const { minX, maxX, minZ, maxZ, capHeight: cap, wallThickness: t } = ARENA
+  const h = style.height ?? ARENA.wallHeight
+  const brickTex = checkerTexture(style.a ?? COLORS.wallA, style.b ?? COLORS.wallB)
+  const capTex = studTexture(style.cap ?? COLORS.wallCap)
   const wallMat = new MeshStandardMaterial({ map: brickTex, ...PLASTIC })
   const capMat = new MeshStandardMaterial({ map: capTex, ...PLASTIC })
   const W = maxX - minX + t * 2
@@ -105,14 +108,15 @@ function buildWalls(group) {
 }
 
 // --- Soda Jump tower + launch pad -------------------------------------------------
-function towerFaceTexture(label, bottom) {
+const towerLabel = (n) => (n >= 1000 ? `${+(n / 1000).toFixed(2)}K` : String(n))
+function towerFaceTexture(label, hue) {
   const c = document.createElement('canvas')
   c.width = 256
-  c.height = 200
+  c.height = Math.round((256 * TOWER.segmentHeight) / TOWER.size) // same aspect as the face, so the number isn't stretched
   const g = c.getContext('2d')
   const grad = g.createLinearGradient(0, 0, 0, c.height)
-  grad.addColorStop(0, bottom ? '#ff7a1c' : '#ffa21f')
-  grad.addColorStop(1, bottom ? '#ee5416' : '#ff8414')
+  grad.addColorStop(0, `hsl(${hue} 100% 58%)`)
+  grad.addColorStop(1, `hsl(${hue} 95% 48%)`)
   g.fillStyle = grad
   g.fillRect(0, 0, c.width, c.height)
   g.fillStyle = 'rgba(255,255,255,0.12)'
@@ -123,15 +127,21 @@ function towerFaceTexture(label, bottom) {
   tex.colorSpace = SRGBColorSpace
   tex.anisotropy = 8
   const draw = () => {
-    g.font = '700 92px Fredoka, "Arial Rounded MT Bold", sans-serif'
+    let px = Math.min(c.height * 0.62, 100)
+    g.font = `700 ${px}px Fredoka, "Arial Rounded MT Bold", sans-serif`
+    const w = g.measureText(label).width
+    if (w > c.width - 40) {
+      px *= (c.width - 40) / w // long labels shrink to fit the face
+      g.font = `700 ${px}px Fredoka, "Arial Rounded MT Bold", sans-serif`
+    }
     g.textAlign = 'center'
     g.textBaseline = 'middle'
     g.lineJoin = 'round'
-    g.lineWidth = 14
+    g.lineWidth = Math.max(6, px * 0.15)
     g.strokeStyle = '#2b2b2b'
-    g.strokeText(label, 128, 104)
+    g.strokeText(label, c.width / 2, c.height / 2 + 4)
     g.fillStyle = '#ffffff'
-    g.fillText(label, 128, 104)
+    g.fillText(label, c.width / 2, c.height / 2 + 4)
     tex.needsUpdate = true
   }
   // Repaint the number over a fresh background once the real font is in.
@@ -144,14 +154,15 @@ function towerFaceTexture(label, bottom) {
   return tex
 }
 
-function buildTower(group) {
+export function buildTower(group) {
   const { x, z, size, segmentHeight: sh, segments, labelStep } = TOWER
-  const capMat = flat(COLORS.tower)
   const geo = new BoxGeometry(size, sh, size)
   const tower = new Group() // the numbered shaft only: space.js keeps it visible when the rest of the lobby is hidden
   group.add(tower)
   for (let i = 0; i < segments; i++) {
-    const side = new MeshStandardMaterial({ map: towerFaceTexture(String((i + 1) * labelStep), i === 0), ...PLASTIC })
+    const hue = Math.round((i * 360) / segments) // one full rainbow up the tower, every segment its own color
+    const side = new MeshStandardMaterial({ map: towerFaceTexture(towerLabel((i + 1) * labelStep), hue), ...PLASTIC })
+    const capMat = flat(`hsl(${hue} 100% 40%)`)
     // Box material order: +x, -x, +y, -y, +z, -z.
     const seg = new Mesh(geo, [side, side, capMat, capMat, side, side])
     seg.position.set(x, sh * i + sh / 2, z)
@@ -196,19 +207,19 @@ function buildTower(group) {
 }
 
 // --- World 2 portal ---------------------------------------------------------------
-const swirlShader = (aspect) => ({
-  uniforms: { time: { value: 0 }, aspect: { value: aspect } },
+// Swirl colours: [r, g, b] shader-space triples, or css colours (sRGB components passed through as-is).
+const swirlVec = (c) => (typeof c === 'string' ? new Vector3(...new Color(c).convertLinearToSRGB().toArray()) : new Vector3(...c))
+export const SWIRL_LOBBY = [[0.1, 0.02, 0.28], [0.5, 0.12, 0.95], [1, 0.65, 1]]
+const swirlShader = (aspect, [deep, mid, hot] = SWIRL_LOBBY) => ({
+  uniforms: { time: { value: 0 }, aspect: { value: aspect }, deep: { value: swirlVec(deep) }, mid: { value: swirlVec(mid) }, hot: { value: swirlVec(hot) } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
-    uniform float time; uniform float aspect; varying vec2 vUv;
+    uniform float time; uniform float aspect; uniform vec3 deep; uniform vec3 mid; uniform vec3 hot; varying vec2 vUv;
     void main() {
       vec2 p = (vUv - 0.5) * vec2(aspect, 1.0) * 2.0;
       float r = length(p);
       float a = atan(p.y, p.x);
       float s = sin(a * 3.0 + log(r + 0.05) * 6.0 - time * 3.0);
-      vec3 deep = vec3(0.10, 0.02, 0.28);
-      vec3 mid = vec3(0.50, 0.12, 0.95);
-      vec3 hot = vec3(1.0, 0.65, 1.0);
       vec3 col = mix(deep, mid, smoothstep(-0.3, 0.9, s));
       col = mix(col, hot, smoothstep(0.35, 0.0, r) * 0.85);
       col += vec3(0.25, 0.05, 0.35) * smoothstep(0.6, 1.2, r);
@@ -216,11 +227,13 @@ const swirlShader = (aspect) => ({
     }`,
 })
 
-function buildPortal(group) {
+// A stone arch with a swirling gateway. `o` re-skins it per world (worldScenes.js); the defaults are the lobby's World 2 portal.
+export function buildPortal(group, o = {}) {
+  const at = o.at ?? PORTAL
   const portal = new Group()
-  const frameMat = flat('#2b3290', { roughness: 0.7 })
-  const frameDark = flat('#1b1f5c', { roughness: 0.7 })
-  const neon = glowMat('#ff38d6')
+  const frameMat = flat(o.frame ?? '#2b3290', { roughness: 0.7 })
+  const frameDark = flat(o.dark ?? '#1b1f5c', { roughness: 0.7 })
+  const neon = glowMat(o.neon ?? '#ff38d6')
   const W = 3 // opening width
   const H = 3.6 // opening height up to where the arch starts
   const base = 0.45
@@ -271,40 +284,40 @@ function buildPortal(group) {
   const totalH = H + W / 2
   const uv = geo.attributes.uv
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / W + 0.5, uv.getY(i) / totalH)
-  const swirlMat = new ShaderMaterial({ ...swirlShader(W / totalH), side: DoubleSide })
+  const swirlMat = new ShaderMaterial({ ...swirlShader(W / totalH, o.swirl), side: DoubleSide })
   const swirl = new Mesh(geo, swirlMat)
   swirl.position.y = base
   portal.add(swirl)
 
   // Medallion on top of the arch.
-  const orbMat = new ShaderMaterial(swirlShader(1))
+  const orbMat = new ShaderMaterial(swirlShader(1, o.swirl))
   const orb = new Mesh(new CylinderGeometry(0.55, 0.55, 0.2, 32), orbMat)
   orb.rotation.x = Math.PI / 2
   orb.position.set(0, base + H + R + 0.55, 0)
   const orbRim = new Mesh(new TorusGeometry(0.58, 0.1, 8, 32), frameMat)
   orbRim.position.copy(orb.position)
-  const orbGlow = glow('#b04dff', 2.4, 0.6)
+  const orbGlow = glow(o.glow ?? '#b04dff', 2.4, 0.6)
   orbGlow.position.copy(orb.position)
-  const innerGlow = glow('#a040ff', 4.5, 0.45)
+  const innerGlow = glow(o.glow ?? '#a040ff', 4.5, 0.45)
   innerGlow.position.set(0, base + H * 0.6, 0.4)
   portal.add(orb, orbRim, orbGlow, innerGlow)
 
   const sign = makeLabel(
     [
-      { text: 'World 2', size: 68, fill: ['#ffe25a', '#ffaa1c', '#ff7a12'] },
-      { text: 'Reach 20K studs', size: 46 },
+      { text: o.title ?? 'Candy Cloud', size: 68, fill: ['#ffe25a', '#ffaa1c', '#ff7a12'] },
+      { text: o.sub ?? 'Reach 20K studs', size: 46 },
     ],
     1.8,
   )
   sign.position.set(0, base + H + R + 1.5, 0)
   portal.add(sign)
 
-  portal.position.set(PORTAL.x, 0, PORTAL.z)
+  portal.position.set(at.x, 0, at.z)
   group.add(portal)
-  solid(PORTAL.x - 3.2, PORTAL.x + 3.2, PORTAL.z - 1.6, PORTAL.z + 1.6, base)
+  solid(at.x - 3.2, at.x + 3.2, at.z - 1.6, at.z + 1.6, base)
   for (const sx of [-1, 1]) {
-    const cx = PORTAL.x + sx * (W / 2 + 0.45)
-    solid(cx - 0.45, cx + 0.45, PORTAL.z - 0.55, PORTAL.z + 0.55, base + H + R)
+    const cx = at.x + sx * (W / 2 + 0.45)
+    solid(cx - 0.45, cx + 0.45, at.z - 0.55, at.z + 0.55, base + H + R)
   }
 
   return (t) => {
@@ -998,9 +1011,10 @@ function treadmill(group, spec, x, z, top, updaters, index) {
   group.add(g)
 }
 
-function buildShop(group) {
+// The six treadmills on their platform (west wall); `theme` themes the platform + trim (worldShop.js).
+export function buildShop(group, { platform = '#f2261c', trimColor = '#ffd21a' } = {}) {
   const { minX, maxX, minZ, maxZ, top, ramp, gateX, gateZ } = SHOP
-  const red = '#f2261c'
+  const red = platform
   const w = maxX - minX
   const cx = (minX + maxX) / 2
   const flatLen = maxZ - minZ - ramp * 2
@@ -1015,7 +1029,7 @@ function buildShop(group) {
     }
   }
   // Yellow trim wraps the arena side and both ends of the platform.
-  const trim = (bw, bd, bx, bz) => group.add(brick(bw, 0.14, bd, '#ffd21a', bx, 0, bz, { studs: false, collide: false }))
+  const trim = (bw, bd, bx, bz) => group.add(brick(bw, 0.14, bd, trimColor, bx, 0, bz, { studs: false, collide: false }))
   trim(0.35, maxZ - minZ + 0.7, maxX + 0.17, (minZ + maxZ) / 2)
   trim(w, 0.35, cx, minZ - 0.17)
   trim(w, 0.35, cx, maxZ + 0.17)
@@ -1025,7 +1039,7 @@ function buildShop(group) {
   return (t, dt) => updaters.forEach((u) => u(t, dt))
 }
 
-// --- South wall: leaderboards + FREE chest ---------------------------------------------
+// --- South wall: leaderboards ---------------------------------------------
 const FONT = 'Fredoka, "Arial Rounded MT Bold", sans-serif'
 
 // Canvas texture painted now and again once Fredoka has loaded; `draw` must paint the whole canvas.
@@ -1110,43 +1124,8 @@ function leaderboard(title, placeholder, { frame, header, rowFill, rowEdge }) {
   return board
 }
 
-function freeChest() {
-  const chest = new Group()
-  const gold = flat('#ffcc1a', { metalness: 0.35, roughness: 0.35, emissive: '#5a3a00' })
-  const red = flat('#e3141c')
-  const add = (geo, mat, x, y, z) => {
-    const m = new Mesh(geo, mat)
-    m.position.set(x, y, z)
-    m.castShadow = true
-    chest.add(m)
-    return m
-  }
-  add(new BoxGeometry(3, 1.7, 2), gold, 0, 0.85, 0)
-  const lid = add(new CylinderGeometry(1, 1, 3, 24, 1, false, 0, Math.PI), gold, 0, 1.7, 0)
-  lid.rotation.z = Math.PI / 2 // half cylinder along X, round side up
-  // Red straps over body and lid, plus the lock plate.
-  for (const sx of [-0.9, 0.9]) {
-    add(new BoxGeometry(0.35, 1.72, 2.04), red, sx, 0.85, 0)
-    const strap = add(new CylinderGeometry(1.03, 1.03, 0.35, 24, 1, false, 0, Math.PI), red, sx, 1.7, 0)
-    strap.rotation.z = Math.PI / 2
-  }
-  add(new BoxGeometry(0.7, 0.8, 0.12), red, 0, 1.5, -1.04)
-  add(new BoxGeometry(0.25, 0.3, 0.05), flat('#ffe066'), 0, 1.45, -1.12)
-  // Glowing gold ring on the floor.
-  const ring = new Mesh(new TorusGeometry(2.3, 0.12, 8, 48), glowMat('#ffd84a'))
-  ring.rotation.x = -Math.PI / 2
-  ring.position.y = 0.08
-  const halo = glow('#ffcf3a', 6, 0.55)
-  halo.position.y = 1.2
-  chest.add(ring, halo)
-  const sign = makeLabel([{ text: 'FREE', size: 80, fill: ['#ff7af0', '#ff2fd2', '#c21cff'], outline: '#2a0030' }], 1.1)
-  sign.position.y = 3.2
-  chest.add(sign)
-  return { chest, halo }
-}
-
 function buildSouth(group) {
-  const { boardZ, topSodaX, topRebirthsX, chest: c } = SOUTH
+  const { boardZ, topSodaX, topRebirthsX } = SOUTH
   const boards = [
     [topSodaX, leaderboard('Top Soda', TOP_SODA, { frame: '#ff9a1a', header: '#ffd21a', rowFill: '#ffe23a', rowEdge: '#ff8a10' })],
     [topRebirthsX, leaderboard('Top Rebirths', TOP_REBIRTHS, { frame: '#2a9cff', header: '#5ad0ff', rowFill: '#ffe23a', rowEdge: '#1e7ae0' })],
@@ -1165,14 +1144,7 @@ function buildSouth(group) {
     solid(x - 3.9, x + 3.9, boardZ - 0.7, boardZ + 0.7, 8)
   }
 
-  const { chest, halo } = freeChest()
-  chest.position.set(c.x, 0, c.z)
-  group.add(chest)
-  solid(c.x - 1.5, c.x + 1.5, c.z - 1, c.z + 1, 2.7)
-
-  return (t) => {
-    halo.material.opacity = 0.45 + Math.sin(t * 2.4) * 0.12
-  }
+  return () => {}
 }
 
 // Builds the whole lobby. Returns { group, update(time, dt) }.

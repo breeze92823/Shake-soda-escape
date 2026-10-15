@@ -9,6 +9,8 @@ import { playerScreen } from './screenPos.js'
 import { createRebirthWindow } from './rebirth.js'
 import { createDailyWindow } from './daily.js'
 import { createAuraWindow } from './aura.js'
+import { createWorldsWindow } from './worlds.js'
+import { playLevelUp } from './sfx.js'
 import { ICONS } from './icons.js'
 import { isCompact } from './device.js'
 
@@ -83,6 +85,7 @@ function template() {
     ).join('')}
   </div>
 
+  <div class="lvl-banner"><div class="lvl-rays"></div><div class="lvl-title o">LEVEL UP!</div><div class="lvl-sub o-thin"></div></div>
   <div class="pops"></div>
   <div class="toast o"></div>`
 }
@@ -120,6 +123,7 @@ export function createHud({ showMenu }) {
   const rebirthWin = createRebirthWindow(root, say)
   const dailyWin = createDailyWindow(root, say)
   const auraWin = createAuraWindow(root, say)
+  const worldsWin = createWorldsWindow(root, say)
 
   const ACTIONS = {
     menu: () => showMenu(),
@@ -130,7 +134,7 @@ export function createHud({ showMenu }) {
     rebirth: () => rebirthWin.toggle(),
     daily: () => dailyWin.toggle(),
     aura: () => auraWin.toggle(),
-    worlds: () => say('Reach 20K studs to unlock World 2!'),
+    worlds: () => worldsWin.toggle(),
     boost: (el) => {
       const b = BOOST_PASSES.find((p) => p.id === el.dataset.id)
       if (state.passes.has(b.id)) return say(`${b.label} already owned!`)
@@ -169,6 +173,24 @@ export function createHud({ showMenu }) {
     wasMaxed = maxed
     bind.fill.style.width = `${Math.min(100, (s.xp / s.xpNext) * 100)}%`
     SODA_PACKS.forEach((p, i) => (bind[`pack${i}`].textContent = `+${short(s.soda * p.mult)}`))
+  })
+
+  // Level-up banner: pops in when the level rises (not on load or a rebirth reset).
+  const banner = root.querySelector('.lvl-banner')
+  const bannerSub = banner.querySelector('.lvl-sub')
+  let lastLevel = null
+  let bannerTimer = 0
+  subscribe((s) => {
+    const up = lastLevel !== null && s.level > lastLevel
+    lastLevel = s.level
+    if (!up) return
+    bannerSub.textContent = `Level ${s.level}`
+    banner.classList.remove('show')
+    void banner.offsetWidth // restart the animation
+    banner.classList.add('show')
+    clearTimeout(bannerTimer)
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), 2400)
+    playLevelUp()
   })
 
   // "+N" cup pop floats up from the player's chest on every gain (scattered so rapid gains don't stack).

@@ -5,12 +5,12 @@
 import { Client } from '@colyseus/sdk'
 import { DEFAULT_SODA, DEV_MODE, GAME_SLUG, NET, SERVER_URL } from './config.js'
 import { authState, sdk, getEquippedAvatar, getProportions, getSkinTextureUrl, subscribeAuth } from './bloxity.js'
-import { notify, setServerTime, state, subscribe } from './state.js'
+import { devUnlockAll, notify, setServerTime, state, subscribe } from './state.js'
 import { markLoaded } from './loading.js'
 
 // The keys the server persists (backend src/sanitize.ts). `owned`, `passes` and `auras` are Sets in `state`.
-const SAVED = ['soda', 'wins', 'level', 'xp', 'xpNext', 'rebirths', 'equipped', 'owned', 'passes', 'record', 'sodaBoostUntil', 'auras', 'aura', 'dailyDay', 'dailyClaimedAt']
-const SETS = new Set(['owned', 'passes', 'auras'])
+const SAVED = ['soda', 'wins', 'level', 'xp', 'xpNext', 'rebirths', 'equipped', 'owned', 'passes', 'record', 'sodaBoostUntil', 'auras', 'aura', 'worlds', 'dailyDay', 'dailyClaimedAt']
+const SETS = new Set(['owned', 'passes', 'auras', 'worlds'])
 const AVATAR_MAX = 3000 // backend AVATAR_MAX_LEN
 
 export const net = {
@@ -106,6 +106,8 @@ function hydrate(doc) {
     state[k] = SETS.has(k) ? new Set(doc[k]) : doc[k]
   }
   state.owned.add(DEFAULT_SODA) // the plain cola is always owned
+  state.worlds.add('lobby')
+  devUnlockAll()
   lastSaved = snapshot() // what the server holds: don't echo it straight back
   notify()
 }
@@ -128,7 +130,9 @@ export function sendPose(player, speed, pose = '') {
   if (now - lastPoseAt < 1000 / NET.poseHz) return
   lastPoseAt = now
   const r = (n) => Math.round(n * 100) / 100
-  const msg = { x: r(player.position.x), y: r(player.position.y), z: r(player.position.z), yaw: r(player.facing), speed01: r(Math.min(1, speed / player.moveSpeed)), grounded: player.grounded, pose }
+  // Other worlds share the lobby's coordinates, so while away the avatar is parked under the lobby floor (out of sight).
+  const away = state.world !== 'lobby'
+  const msg = { x: away ? 0 : r(player.position.x), y: away ? -39 : r(player.position.y), z: away ? 0 : r(player.position.z), yaw: r(player.facing), speed01: r(Math.min(1, speed / player.moveSpeed)), grounded: player.grounded, pose }
   const key = JSON.stringify(msg)
   if (key === lastPose) return
   lastPose = key

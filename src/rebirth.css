@@ -132,6 +132,8 @@
 .rb-skip > span { font-size: 38px; line-height: 40px; white-space: nowrap; }
 .rb-skip small { font-size: 26px; line-height: 28px; color: #ffe23a; }
 .rb-skip small.o-thin { -webkit-text-stroke-width: 4px; }
+.rb-skip small { color: #ff6a6a; }
+.rb-skip.on small { color: #8cff5a; }
 .rb-skip .price { position: absolute; right: 18px; top: -24px; display: flex; align-items: center; gap: 3px; font-size: 32px; line-height: 36px; color: #8cff5a; }
 .rb-skip .price i { width: 30px; height: 30px; }
 .rb-skip .price .o-thin { -webkit-text-stroke-color: #0e2a12; text-shadow: 0 2px 0 #0e2a12; }

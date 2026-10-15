@@ -13,10 +13,10 @@ const LOGO_SRC = `${import.meta.env.BASE_URL}ui/logo.png`
 const DRIFT = ['🥤','🫧','🥤','🫧','🥤','🫧','🥤','🫧','🥤','🫧','🥤','🫧']
 
 const STEPS = [
-  ['scene', 'Building the world…'],
-  ['auth', 'Signing in…'],
-  ['avatar', 'Dressing your character…'],
-  ['net', 'Joining the world…'],
+  ['scene', 'Shaking up the lobby…'],
+  ['auth', 'Checking your ticket…'],
+  ['avatar', 'Grabbing your soda…'],
+  ['net', 'Heading to the arena…'],
 ]
 const done = Object.fromEntries(STEPS.map(([k]) => [k, false]))
 
@@ -37,7 +37,7 @@ function paint() {
   fill.style.width = `${pct}%`
   pctEl.textContent = `${pct}%`
   const next = STEPS.find(([k]) => !done[k])
-  statusEl.textContent = pct >= 100 ? 'Ready!' : next ? next[1] : 'Almost there…'
+  statusEl.textContent = pct >= 100 ? 'Pop the top!' : next ? next[1] : 'Fizzing up…'
 }
 
 function tick() {

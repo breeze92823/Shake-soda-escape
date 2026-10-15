@@ -6,6 +6,8 @@ export const GAME_TITLE = 'Shake Soda Escape'
 
 // Forces the Bloxity SDK and avatar CDN to be treated as unavailable (see .env.example).
 export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
+// With DEV_MODE on, also own every soda (cola, orange, ... trophy) from the start (see .env.example).
+export const DEV_UNLOCK_ALL = DEV_MODE && import.meta.env.VITE_DEV_UNLOCK_ALL === 'true'
 
 // --- Multiplayer (net.js, backend: ../Shake-soda-escape-backend) --------------------
 // Colyseus server URL per Bloxity Legion channel: `npm run dev` / `build:dev` use _DEV (dev defaults to
@@ -33,7 +35,7 @@ export const SPAWN_FACING = Math.PI // faces -Z (north: the tower)
 // Walled arena; the walls' inner faces are the movement bounds.
 export const ARENA = { minX: -26, maxX: 26, minZ: -36, maxZ: 22, wallHeight: 12, capHeight: 1.2, wallThickness: 2 }
 export const WORLD_BOUNDS = { minX: ARENA.minX, maxX: ARENA.maxX, minZ: ARENA.minZ, maxZ: ARENA.maxZ }
-export const TOWER = { x: 0, z: -25, size: 9, segmentHeight: 7, segments: 24, labelStep: 20 }
+export const TOWER = { x: 0, z: -25, size: 9, segmentHeight: 8.75, segments: 80, labelStep: 250 } // 80 x 8.75 m = 700 m = the Summit; labels in studs up to 20K. Keep segmentHeight close to size so the number isn't stretched
 export const LAUNCH_PAD = { x: 0, z: -17.6, radius: 2.3 }
 export const PORTAL = { x: -9, z: -27 }
 export const VOID_NPC = { x: 10, z: -27 }
@@ -72,6 +74,38 @@ export const SODA_ITEMS = {
 export const DEFAULT_SODA = 'cola'
 // Void Soda (NPC at VOID_NPC): a premium can outside the unlock ladder, buyable any time with Wins (hold E on its pad).
 export const VOID_SODA = { kind: 'void', name: 'Void Soda', reward: '+60K Soda', gain: 60000, price: 8000000 }
+// Every themed world (WORLDS) has its own soda shelf (worldShop.js) next to a copy of the lobby treadmills (SHOP):
+// three sodas that out-gain the lobby's, each world's priced above the one before. A world's sodas unlock in
+// order (like the lobby's) and an owned one works in every world. `look` styles the model (sodaItems.js):
+// shape can | bottle | cup, body colour, accent (band / straw / cap) and optional glow. Ids are mirrored by the backend (SODA_IDS).
+export const WORLD_SODAS = {
+  candy: [
+    { kind: 'candy-1', name: 'Marshmallow Fizz', gain: 80000, price: 400000, look: { shape: 'cup', color: '#fff0f8', accent: '#ff8ac8' } },
+    { kind: 'candy-2', name: 'Gumdrop Pop', gain: 150000, price: 1500000, look: { shape: 'bottle', color: '#ff6ad0', accent: '#ffe45a' } },
+    { kind: 'candy-3', name: 'Cotton Candy Cola', gain: 300000, price: 5000000, look: { shape: 'can', color: '#8fd8ff', accent: '#ff7ac4' } },
+  ],
+  neon: [
+    { kind: 'neon-1', name: 'Plasma Cola', gain: 500000, price: 1500000, look: { shape: 'can', color: '#101a3a', accent: '#00f0ff', glow: true } },
+    { kind: 'neon-2', name: 'Ion Fizz', gain: 1000000, price: 6000000, look: { shape: 'bottle', color: '#ff38d6', accent: '#00f0ff', glow: true } },
+    { kind: 'neon-3', name: 'Nova Reactor', gain: 2500000, price: 20000000, look: { shape: 'can', color: '#ff9a1a', accent: '#fff07a', glow: true } },
+  ],
+  glacier: [
+    { kind: 'glacier-1', name: 'Frost Fizz', gain: 5000000, price: 8000000, look: { shape: 'can', color: '#bfefff', accent: '#3a9ae8' } },
+    { kind: 'glacier-2', name: 'Icicle Slush', gain: 12000000, price: 30000000, look: { shape: 'cup', color: '#7ad0ff', accent: '#ffffff' } },
+    { kind: 'glacier-3', name: 'Aurora Soda', gain: 30000000, price: 100000000, look: { shape: 'bottle', color: '#6dffcb', accent: '#b88cff', glow: true } },
+  ],
+  volcano: [
+    { kind: 'volcano-1', name: 'Magma Cola', gain: 60000000, price: 50000000, look: { shape: 'can', color: '#ff4a1a', accent: '#ffd21a', glow: true } },
+    { kind: 'volcano-2', name: 'Ember Burst', gain: 150000000, price: 200000000, look: { shape: 'bottle', color: '#ff9a1a', accent: '#ff2a1a', glow: true } },
+    { kind: 'volcano-3', name: 'Obsidian Blast', gain: 400000000, price: 600000000, look: { shape: 'can', color: '#1a1015', accent: '#ff6a1a', glow: true } },
+  ],
+  reef: [
+    { kind: 'reef-1', name: 'Bubble Pop', gain: 1000000000, price: 300000000, look: { shape: 'bottle', color: '#8ae8ff', accent: '#ffffff' } },
+    { kind: 'reef-2', name: 'Coral Cooler', gain: 3000000000, price: 1200000000, look: { shape: 'cup', color: '#ff7a9a', accent: '#ffd24a' } },
+    { kind: 'reef-3', name: 'Kraken Cola', gain: 10000000000, price: 5000000000, look: { shape: 'can', color: '#2a6fe0', accent: '#4ad8c0', glow: true } },
+  ],
+}
+for (const list of Object.values(WORLD_SODAS)) for (const s of list) s.reward = `+${s.gain >= 1e9 ? s.gain / 1e9 + 'B' : s.gain >= 1e6 ? s.gain / 1e6 + 'M' : s.gain / 1e3 + 'K'} Soda`
 // "Press E" interactions (interact.js): hold E this long to confirm; pads trigger within `range` m.
 export const INTERACT = { holdMs: 2000, padRange: 1.8, padHeight: 1.5 }
 // Soda multiplier treadmills along the west wall on a low red platform (ramp = 0:
@@ -80,9 +114,81 @@ export const SHOP = { minX: -26, maxX: -14, minZ: -31, maxZ: 15, top: 0.4, ramp:
   // Standing on a belt (length x width m around gate) multiplies each gain by `mults[i]` (x1..x32);
   // belt i needs `rebirths[i]` rebirths (as on its sign).
   belt: { length: 10, width: 4.4 }, mults: [1, 2, 4, 8, 16, 32], rebirths: [0, 3, 4, 5, 6, 7] }
-// South wall: two leaderboards (board centre x) and the FREE chest between them.
-export const SOUTH = { boardZ: 21.3, topSodaX: 8, topRebirthsX: -6, chest: { x: 1, z: 17 } }
+// South wall: two leaderboards (board centre x).
+export const SOUTH = { boardZ: 21.3, topSodaX: 8, topRebirthsX: -6 }
 export const STEP_UP = 0.6 // m the player walks up onto without jumping
+
+// --- Worlds (worlds.js, worldScenes.js) -----------------------------------------------
+// The lobby is world 0. Reaching the Summit (SPACE.summit studs) in a world unlocks and warps to the next
+// one; every world has its own sky, light, floor and walls, the same tower + launch pad, and portals
+// (hold E) back to the lobby / on to the next unlocked world. `winsMult` multiplies landing Wins and
+// `sodaMult` every soda gain while you are in it. Ids are mirrored by the backend (WORLD_IDS).
+export const WORLDS = [
+  {
+    id: 'lobby', short: 'Soda Lobby', name: 'Soda Lobby', tag: 'Where it all starts', winsMult: 1, sodaMult: 1,
+    sky: { horizon: '#5fb4ff', zenith: '#0a4fe0' }, // = COLORS.horizon / zenith
+    fog: { near: 90, far: 260 },
+    light: { hemiSky: '#e4f1ff', hemiGround: '#b9a98a', hemiIntensity: 1.5, sunColor: '#fff2d6', sunIntensity: 2.4 },
+    ground: { color: '#3fd62a' },
+    card: { top: '#4ed83c', bot: '#1c9a1e', edge: '#0b3a10' },
+  },
+  {
+    id: 'candy', short: 'Candy Cloud', name: 'Candy Cloud Kingdom', tag: 'Marshmallow ground, lollipop trees', winsMult: 2, sodaMult: 2,
+    sky: { horizon: '#ffc6e8', zenith: '#8fa8ff' },
+    fog: { near: 70, far: 230 },
+    light: { hemiSky: '#fff0fa', hemiGround: '#ffc2e0', hemiIntensity: 1.6, sunColor: '#fff0e0', sunIntensity: 2.2 },
+    ground: { color: '#ffd1ec', contrast: 0.35 },
+    walls: { a: '#ff9ccf', b: '#ffc2e4', cap: '#ffffff', height: 3.2 },
+    portal: { frame: '#ff7ac4', dark: '#c64a96', neon: '#ffe45a' },
+    card: { top: '#ff9ad5', bot: '#e24aa6', edge: '#5a0a3a' },
+  },
+  {
+    id: 'neon', short: 'Neon Station', name: 'Neon Cola Station', tag: 'Orbital platform, low gravity', winsMult: 5, sodaMult: 5,
+    sky: { horizon: '#2a0a5a', zenith: '#02020b' },
+    fog: { near: 60, far: 220 },
+    light: { hemiSky: '#8a9bff', hemiGround: '#401a7a', hemiIntensity: 1.1, sunColor: '#b8c8ff', sunIntensity: 1.6 },
+    ground: { color: '#16183a', contrast: 0.6 },
+    walls: { a: '#222658', b: '#2e3478', cap: '#00f0ff', height: 2.4 },
+    portal: { frame: '#2b3290', dark: '#14185c', neon: '#00f0ff' },
+    baseDark: 0.96, baseStars: 1, baseNebula: 1, decor: false, gravity: -9,
+    card: { top: '#3cd8ff', bot: '#2a5cf0', edge: '#0a1a5a' },
+  },
+  {
+    id: 'glacier', short: 'Frozen Glacier', name: 'Frozen Soda Glacier', tag: 'Slippery ice, aurora sky', winsMult: 10, sodaMult: 10,
+    sky: { horizon: '#cfeeff', zenith: '#16206a' },
+    fog: { near: 55, far: 190 },
+    light: { hemiSky: '#e6f6ff', hemiGround: '#9cc8e8', hemiIntensity: 1.7, sunColor: '#e8f4ff', sunIntensity: 2.0 },
+    ground: { color: '#b8e6ff', contrast: 0.4 },
+    walls: { a: '#8fd0f0', b: '#b6e4fa', cap: '#ffffff', height: 6 },
+    portal: { frame: '#6aa8d8', dark: '#3a78a8', neon: '#9ff6ff' },
+    grip: 0.15, aurora: true, baseDark: 0.45, baseStars: 1, decor: false, // grip < 1 = slippery ice (player.js)
+    card: { top: '#a8ecff', bot: '#4aa8e8', edge: '#0a3a5a' },
+  },
+  {
+    id: 'volcano', short: 'Lava Volcano', name: 'Volcano Lava Soda', tag: 'Lava rivers, fizzing geysers', winsMult: 25, sodaMult: 25,
+    sky: { horizon: '#ff7a2a', zenith: '#2a0a10' },
+    fog: { near: 45, far: 170 },
+    light: { hemiSky: '#ffb070', hemiGround: '#5a1a0a', hemiIntensity: 1.2, sunColor: '#ff9a50', sunIntensity: 2.0 },
+    ground: { color: '#3a2420', contrast: 0.7 },
+    walls: { a: '#3a2a28', b: '#4a3430', cap: '#ff5a1a', height: 8 },
+    portal: { frame: '#5a3a30', dark: '#2a1a16', neon: '#ff7a1a' },
+    baseDark: 0.25, decor: false,
+    card: { top: '#ff8a3a', bot: '#c81a0a', edge: '#4a0a02' },
+  },
+  {
+    id: 'reef', short: 'Fizz Reef', name: 'Underwater Fizz Reef', tag: 'Coral, bubbles and calm blue', winsMult: 60, sodaMult: 60,
+    sky: { horizon: '#2fb8d8', zenith: '#0a3a8a' },
+    fog: { near: 20, far: 120 },
+    light: { hemiSky: '#9fefff', hemiGround: '#1a6a8a', hemiIntensity: 1.5, sunColor: '#c8ffff', sunIntensity: 1.8 },
+    ground: { color: '#e8d49a', contrast: 0.4 },
+    walls: { a: '#1a8ab0', b: '#2aa6c8', cap: '#9ff6ff', height: 5 },
+    portal: { frame: '#1a8ab0', dark: '#0a5a80', neon: '#7affd8' },
+    decor: false, bubbles: true,
+    card: { top: '#5ae8ff', bot: '#1a7ad0', edge: '#082a5a' },
+  },
+]
+export const WORLD_IDS = WORLDS.map((w) => w.id)
+export const worldDef = (id) => WORLDS.find((w) => w.id === id) ?? WORLDS[0]
 
 // --- Physics feel (player.js) -----------------------------------------------
 export const PHYSICS = {
@@ -103,8 +209,10 @@ export const LAUNCH = {
   alignRate: 9, // 1/s the player glides to the pad centre / turns to face the camera
   grab: 0.7, // s raising the can into both hands
   shake: 2.1, // s of shaking (ramps up)
-  height: 20, // m gained above the pad at the minimum launch; launch speed is derived from PHYSICS.gravity
-  maxHeight: 60, // m of real rise at the Summit: the rest of the climb is only shown by the sky (SPACE)
+  height: 15, // m gained above the pad at the minimum launch (just over the outer walls: wallHeight + capHeight = 13.2); launch speed is derived from PHYSICS.gravity
+  maxHeight: 700, // m of real rise at the Summit (a huge, fast climb; the sky + decks sell the rest)
+  riseTimeMin: 3, // s to the apex at the minimum launch (gravity is lowered to stretch the flight)
+  riseTimeMax: 10, // s to the apex at the Summit, so the climb through the sky layers can be seen
   landLock: 0.25, // s controls stay locked after touchdown
   shakeHz: 7, // can shakes per second at full intensity
   camFov: 16, // degrees the FOV widens at the top of the launch
@@ -142,12 +250,13 @@ export const LAUNCH = {
   },
 }
 // --- Launch altitude + outer space (launch.js, space.js, flightHud.js) -------------
-// A launch's peak (in "studs") = the soda total, at least `baseStuds`, capped by the equipped soda:
+// A launch's peak (in "studs") = the soda total scaled so `summitSoda` soda = the Summit, at least `baseStuds`, capped by the equipped soda:
 // cap = summit * min(1, gain / summitGain), so only a +30K soda (Gold Trophy) or better reaches the Summit.
 // The player really rises only LAUNCH.height..maxHeight m; the altitude is virtual and drives the sky.
 export const SPACE = {
   summit: 20000, // studs, fixed top
   summitGain: 30000, // equipped soda gain that unlocks the Summit
+  summitSoda: 100000000, // soda total needed for the Summit (peak studs scale linearly: soda x summit / summitSoda)
   baseStuds: 20, // minimum peak (the plain launch)
   winsPerStud: 1.766, // Wins collected on landing = peak studs x this
   darkFrom: 400, // altitude (studs) the blue sky starts to darken ...
@@ -158,7 +267,14 @@ export const SPACE = {
   nebulaTo: 16000,
   decorFade: 0.5, // clouds + rainbows are gone once the sky is this dark (0..1)
   hideScenery: 0.97, // ground + lobby are hidden at this darkness
-  bannerAt: 5500, // altitude that shows "OUTER SPACE!"
+  // Named layers: the flight HUD flashes the name when the altitude (studs) first reaches `from`.
+  layers: [
+    { from: 0, name: 'TROPOSPHERE' },
+    { from: 600, name: 'STRATOSPHERE' },
+    { from: 1500, name: 'MESOSPHERE' },
+    { from: 3000, name: 'THERMOSPHERE' },
+    { from: 5500, name: 'OUTER SPACE' },
+  ],
   fogNear: 25, // fog tightens to this / fogFar at full dark, so the ground fades into black below
   fogFar: 110,
   spaceColor: '#02020b',
@@ -197,7 +313,7 @@ export const CHARACTER_COLORS = { skin: '#f2c79a', suit: '#2f9e8f', hair: '#5a3a
 export const CAMERA = {
   fov: 70,
   near: 0.1,
-  far: 600,
+  far: 1400,
   startPitch: 0.32, // radians above the horizon
   minPitch: -0.1,
   maxPitch: 1.2,
@@ -351,8 +467,8 @@ export function coerceSetting(key, raw) {
 const START_WINS = Math.max(0, Number(import.meta.env.VITE_START_WINS) || 0)
 export const HUD_START = { soda: 1, wins: START_WINS, level: 1, xp: 0, xpNext: 20, rebirths: 0 }
 // Rebirth window: rebirth n gives x(1 + n*multStep) Soda (rebirth 0: x1.0, rebirth 1: x1.5) and needs Level levelBase + n*levelStep
-// for the next one (rebirth 4: x3.0, Level 50). Rebirthing resets the level to 1; Skip keeps it.
-export const REBIRTH = { multStep: 0.5, levelBase: 10, levelStep: 10, skipPrice: 25000 } // skipPrice in Wins
+// for the next one (rebirth 4: x3.0, Level 50). Rebirthing resets the level to 1; Auto Rebirth does it as soon as the level is reached.
+export const REBIRTH = { multStep: 0.5, levelBase: 10, levelStep: 10 }
 // Daily Rewards window: one reward per `cooldownMs`, days 1-7 in order (then back to day 1; missing a whole extra
 // day restarts the streak). soda/wins = `amount` granted; boost = x2 Soda for `minutes`. `big` = gold tile.
 export const DAILY = {
@@ -372,10 +488,10 @@ export const SODA_GAIN = { interval: 1 }
 export const levelXp = (level) => 20 + 3 * (level - 1) // xp to clear `level`: 20, 23, 26, ...
 // Bottom soda packs: grant `mult` x current soda; price in Wins.
 export const SODA_PACKS = [
-  { mult: 0.5, price: 1000, color: 'orange' },
+  { mult: 0.5, price: 500, color: 'orange' },
   { mult: 1.5, price: 5000, color: 'blue' },
-  { mult: 3, price: 25000, color: 'red' },
-  { mult: 7.5, price: 150000, color: 'purple' },
+  { mult: 3, price: 60000, color: 'red' },
+  { mult: 7.5, price: 1500000, color: 'purple' },
 ]
 // Right-side boost passes (one-time, price in Wins). x2 Soda doubles every soda gain; x2 Wins is stored for when Wins are earned.
 // Aura window: each aura is bought once with Wins (`price`) and, while equipped (one at a time), multiplies
@@ -395,3 +511,18 @@ export const BOOST_PASSES = [
   { id: 'soda', label: 'x2 Soda', price: 100000 },
   { id: 'wins', label: 'x2 Wins', price: 500000 },
 ]
+
+// Sound effects (sfx.js, synthesised with Web Audio: no files). Volumes are 0..1 multipliers.
+export const SFX = {
+  master: 0.7,
+  shake: 0.45, // can rattle + slosh on each soda gain
+  fizz: 0.22, // carbonation hiss while the Soda Jump can is shaken
+  burst: 0.9, // can pop + foam spray
+  land: 0.7, // thud when dropping onto the ground (scaled by impact speed)
+  wins: 0.5, // coin chime when Wins are gained
+  spend: 0.6, // purchase sound when Wins are spent
+  ui: 0.35, // button click / hover
+  levelUp: 0.6, // level-up fanfare
+  claim: 0.6, // daily reward claim
+  shakeMinGap: 0.14, // s between rattles (treadmills gain very often)
+}

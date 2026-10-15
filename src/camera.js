@@ -79,8 +79,8 @@ export function update(camera, dt) {
   rush += (targetRush - rush) * (1 - Math.exp(-CAMERA.speedEase * dt))
   zoomEased += (zoomTarget - zoomEased) * (1 - Math.exp(-CAMERA.zoomEase * dt))
 
-  const distance = Math.max(1, zoomEased + CAMERA.speedDistance * rush + LAUNCH.camDistance * launch.boost)
-  const fov = CAMERA.fov + CAMERA.speedFov * rush + LAUNCH.camFov * launch.boost
+  const distance = Math.max(1, zoomEased + CAMERA.speedDistance * rush + LAUNCH.camDistance * launch.boost + 6 * launch.speed)
+  const fov = CAMERA.fov + CAMERA.speedFov * rush + LAUNCH.camFov * launch.boost + 22 * launch.speed
   if (Math.abs(camera.fov - fov) > 0.01) {
     camera.fov = fov
     camera.updateProjectionMatrix()

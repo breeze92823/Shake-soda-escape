@@ -108,6 +108,7 @@ export function createRemotePlayers(scene) {
   const remotes = new Map() // sessionId -> Remote
 
   return {
+    setVisible: (v) => { root.visible = v },
     update(dt, viewer) {
       const players = net.players
       const mine = net.sessionId

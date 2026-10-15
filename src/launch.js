@@ -4,11 +4,12 @@
 //
 // Phases: idle -> grab -> shake -> rise -> fall -> land -> idle. `launch` is the read-only state
 // the animator (pose), camera (framing / shake) and player (input lock) consume.
-import { LAUNCH, LAUNCH_PAD, PHYSICS, SPACE } from './config.js'
+import { LAUNCH, LAUNCH_PAD, SPACE } from './config.js'
 import { launchStuds } from './state.js'
-import { player } from './player.js'
+import { baseGravity, player } from './player.js'
 import { getYaw } from './camera.js'
 import { createLaunchFx } from './launchFx.js'
+import { playBurst, playShake, setFizz, stopFizz } from './sfx.js'
 
 const TAU = Math.PI * 2
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v)
@@ -25,6 +26,8 @@ export const launch = {
   canGone: false, // the can has burst
   boost: 0, // 0..1 camera widening (FOV / boom)
   shake: 0, // 0..1 camera shake amplitude
+  warp: 0, // 0..1 the 20K Summit was hit: light burst + 'next world' (flightHud, player glow)
+  speed: 0, // 0..1 vertical speed while flying (speed lines, extra FOV)
   peak: 0, // studs this launch will reach (state.launchStuds at the burst)
   altitude: 0, // studs now: peak x (real height / real apex). Virtual, drives the sky + flight HUD
 }
@@ -36,6 +39,7 @@ export function onLaunchLand(fn) {
 let apexY = 1 // real feet height of this launch's apex
 
 let fx = null
+let lastShakeCycle = 0
 let armed = true
 let impulse = 0 // burst kick for the camera shake, decays
 let sinceBurst = null // s since the can burst while the jet / column / fountain are still alive
@@ -58,6 +62,17 @@ function turnToward(from, to, rate, dt) {
   return from + diff * (1 - Math.exp(-rate * dt))
 }
 
+// Drops the sequence on the spot (world warp): the player is handed back, gravity restored.
+export function cancelLaunch() {
+  launch.hold = launch.canGone = false
+  launch.intensity = launch.charge = launch.peak = launch.altitude = launch.warp = 0
+  stopFizz()
+  player.gravity = baseGravity()
+  sinceBurst = null
+  armed = false
+  setPhase('idle')
+}
+
 export function updateLaunch(dt, camera, pixelHeight) {
   const p = player.position
   launch.t += dt
@@ -65,6 +80,8 @@ export function updateLaunch(dt, camera, pixelHeight) {
     // Something else took the player (respawn / teleport): abandon the sequence.
     launch.hold = launch.canGone = false
     launch.intensity = 0
+    stopFizz()
+    player.gravity = baseGravity()
     setPhase('idle')
   }
 
@@ -77,6 +94,7 @@ export function updateLaunch(dt, camera, pixelHeight) {
         launch.hold = true
         launch.canGone = false
         launch.shakePhase = 0
+        lastShakeCycle = 0
         setPhase('grab')
       }
       break
@@ -101,6 +119,11 @@ export function updateLaunch(dt, camera, pixelHeight) {
       launch.shakePhase = (launch.shakePhase + TAU * LAUNCH.shakeHz * (0.35 + 0.65 * launch.intensity) * dt) % (TAU * 1000)
       const canX = p.x + Math.sin(player.facing) * LAUNCH.canForward
       const canZ = p.z + Math.cos(player.facing) * LAUNCH.canForward
+      setFizz(launch.intensity)
+      if (Math.floor(launch.shakePhase / TAU) !== lastShakeCycle) {
+        lastShakeCycle = Math.floor(launch.shakePhase / TAU)
+        playShake()
+      }
       if (launch.charge <= 0) fx?.hiss(canX, p.y + LAUNCH.canHeight, canZ, launch.intensity, dt) // mist hiss until the pressure build-up
       // Pressure build-up just before the pop: the can bulges, foam leaks and swells on the pad.
       launch.charge = clamp01((launch.t - (LAUNCH.shake - LAUNCH.fx.chargeTime)) / LAUNCH.fx.chargeTime)
@@ -113,10 +136,17 @@ export function updateLaunch(dt, camera, pixelHeight) {
         launch.hold = false
         launch.intensity = 0
         impulse = 1
+        playBurst()
         launch.peak = launchStuds()
-        const rise = LAUNCH.height + (LAUNCH.maxHeight - LAUNCH.height) * Math.sqrt(launch.peak / SPACE.summit)
+        // 0 at the minimum launch (baseStuds) -> 1 at the Summit, so the plain launch rises exactly LAUNCH.height.
+        const s0 = Math.sqrt(SPACE.baseStuds / SPACE.summit)
+        const k = Math.max(0, (Math.sqrt(launch.peak / SPACE.summit) - s0) / (1 - s0))
+        const rise = LAUNCH.height + (LAUNCH.maxHeight - LAUNCH.height) * k
         apexY = p.y + rise
-        player.velocity.y = Math.sqrt(2 * -PHYSICS.gravity * rise)
+        // Lower gravity for the flight so the apex takes riseTime seconds (not ~2): g = 2 * rise / T^2.
+        const riseTime = LAUNCH.riseTimeMin + (LAUNCH.riseTimeMax - LAUNCH.riseTimeMin) * k
+        player.gravity = -Math.min(-baseGravity(), (2 * rise) / (riseTime * riseTime))
+        player.velocity.y = Math.sqrt(2 * -player.gravity * rise)
         player.grounded = false
         fx?.burst(
           p.x + Math.sin(player.facing) * LAUNCH.canForward, p.y + LAUNCH.canHeight, p.z + Math.cos(player.facing) * LAUNCH.canForward, p.y,
@@ -136,6 +166,7 @@ export function updateLaunch(dt, camera, pixelHeight) {
       player.velocity.x = player.velocity.z = 0
       fx?.trail(p.x, p.y, p.z, Math.max(0, 1 - launch.t / 0.8), dt)
       if (player.grounded && launch.t > 0.3) {
+        player.gravity = baseGravity()
         setPhase('land')
         const peak = launch.peak
         launch.peak = 0
@@ -170,10 +201,14 @@ export function updateLaunch(dt, camera, pixelHeight) {
   const flying = launch.phase === 'rise' || launch.phase === 'fall'
   launch.altitude = flying ? launch.peak * clamp01(p.y / apexY) : 0
 
+  const atSummit = flying && launch.peak >= SPACE.summit && launch.altitude >= SPACE.summit * 0.97
+  launch.warp += ((atSummit ? 1 : 0) - launch.warp) * (1 - Math.exp(-(atSummit ? 6 : 1.2) * dt))
+  if (launch.warp < 0.001) launch.warp = 0
+  launch.speed = flying ? clamp01(Math.abs(player.velocity.y) / 90) : 0
   const airborne = launch.phase === 'rise' || launch.phase === 'fall'
   launch.boost += ((airborne ? 1 : 0) - launch.boost) * (1 - Math.exp(-LAUNCH.camEase * dt))
   impulse *= Math.exp(-5 * dt)
-  launch.shake = Math.max(launch.intensity * launch.intensity * 0.6, launch.charge * 0.9, impulse)
+  launch.shake = Math.max(launch.intensity * launch.intensity * 0.6, launch.charge * 0.9, impulse, launch.speed * 0.35)
   if (sinceBurst !== null && sinceBurst < LAUNCH.fx.jetTime) launch.shake = Math.max(launch.shake, 0.5) // the jet rumbles
 
   fx?.update(dt, camera, pixelHeight)

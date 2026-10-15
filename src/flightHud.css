@@ -28,3 +28,11 @@
 
 .fl-banner { position: absolute; left: 50%; top: 31%; transform: translate(-50%, 0) scale(0.6); opacity: 0; white-space: nowrap; font-size: clamp(36px, 7vw, 140px); color: #bfe9ff; transition: opacity 0.25s, transform 0.25s; }
 .fl-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+.fl-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.fl-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, #fff 0%, #fff6c8 45%, rgba(255,214,90,0.55) 100%); }
+.fl-warp { position: absolute; left: 50%; top: 38%; transform: translate(-50%, 0) scale(0.6); opacity: 0; text-align: center; color: #fff; transition: opacity 0.35s, transform 0.35s; text-shadow: 0 0 24px #ffb000, 0 0 60px #ff7a00; }
+.fl-warp b { display: block; font-size: clamp(40px, 8vw, 150px); color: #ffe45a; }
+.fl-warp span { display: block; font-size: clamp(20px, 3.2vw, 60px); color: #fff; }
+.fl-warp.show { opacity: 1; transform: translate(-50%, 0) scale(1); z-index: 1; }
